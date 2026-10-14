@@ -16,7 +16,6 @@
     M: { cell: 9, yokoH: 13, yokoFont: 5.8, label: 3.4 },
     S: { cell: 7.5, yokoH: 10.5, yokoFont: 4.8, label: 3 },
   };
-  const PLACE = ['一', '十', '百', '千', '万', '十万'];
   const WDAY = ['日', '月', '火', '水', '木', '金', '土'];
 
   const nd = (n) => String(n).length;
@@ -44,9 +43,8 @@
         W = Math.max(W, sh.W);
         if (sh.rows > rows) { rows = sh.rows; kind = sh.kind; }
       }
-      const extra = (cfg.memo ? 0.55 : 0) + (cfg.guide ? 0.5 : 0);
       const itemW = (W + 1) * s.cell;
-      const itemH = (rows + extra) * s.cell + s.label + 1.5;
+      const itemH = rows * s.cell + s.label + 1.5;
       const cols = Math.max(1, Math.min(5, Math.floor((CONTENT_W + gapX) / (itemW + gapX + 4))));
       return { s, W, rows, kind, itemW, itemH, rowGap: 5, cols };
     }
@@ -156,14 +154,6 @@
       }
       return row.join('');
     };
-    if (cfg.guide) {
-      cells.push('<div class="c sign g"></div>');
-      for (let i = 0; i < W; i++) cells.push(`<div class="c g">${PLACE[W - 1 - i] ? PLACE[W - 1 - i] + 'の位' : ''}</div>`);
-    }
-    if (cfg.memo) {
-      cells.push('<div class="c sign memo"></div>');
-      for (let i = 0; i < W; i++) cells.push('<div class="c memo"><span></span></div>');
-    }
     cells.push(digitsRow(a, 0, 'n', null, true));
     cells.push(digitsRow(b, 0, 'n under', op, true));
     let rowsUsed = 3;

@@ -14,10 +14,10 @@
 
   const DEFAULT = {
     g: 1, t: 'g1_add_carry', opts: {}, fmt: 'yoko', n: 5, d: 5, sd: '', dm: 'auto', sk: true,
-    mode: 'diff', ly: 'multi', sz: 'M', memo: true, guide: false, face: true, time: false,
+    mode: 'diff', ly: 'multi', sz: 'M', face: true, time: false,
     ans: true, triv: true, ttl: '', s: newSeed(),
   };
-  const BOOL = ['sk', 'memo', 'guide', 'face', 'time', 'ans', 'triv'];
+  const BOOL = ['sk', 'face', 'time', 'ans', 'triv'];
   const NUM = ['g', 'n', 'd', 's'];
 
   let st = loadState();
@@ -128,7 +128,6 @@
 
     $('fmtRow').hidden = !type.hissan;
     seg($('fmt'), [['yoko', '横式'], ['hissan', '筆算']], st.fmt, (v) => { st.fmt = v; update(true); });
-    $('hissanAids').hidden = st.fmt !== 'hissan';
 
     seg($('dateMode'), [['auto', '自動で入れる'], ['blank', '空欄（手書き）']], st.dm, (v) => { st.dm = v; update(true); });
     $('dateRow').hidden = st.dm !== 'auto';
@@ -138,7 +137,7 @@
 
     $('count').value = st.n; $('days').value = st.d;
     $('startDate').value = st.sd || today();
-    for (const [id, k] of [['skipWeekend', 'sk'], ['memo', 'memo'], ['guide', 'guide'], ['face', 'face'], ['time', 'time'], ['answers', 'ans'], ['triv', 'triv']]) $(id).checked = !!st[k];
+    for (const [id, k] of [['skipWeekend', 'sk'], ['face', 'face'], ['time', 'time'], ['answers', 'ans'], ['triv', 'triv']]) $(id).checked = !!st[k];
     $('title').value = st.ttl;
     $('title').placeholder = G.titleOf(type, st.opts);
   }
@@ -155,7 +154,7 @@
     const amari = type.options.find((o) => o.key === 'amari');
     return {
       type: st.t, opts: st.opts, mode: st.mode, triv: st.triv, seed: st.s, days: st.d, count: st.n,
-      fmt: st.fmt, size: st.sz, memo: st.memo, guide: st.guide, face: st.face, time: st.time,
+      fmt: st.fmt, size: st.sz, face: st.face, time: st.time,
       answers: st.ans, layout: st.ly, dateMode: st.dm, startDate: st.sd || today(), skipWeekend: st.sk,
       title: st.ttl || G.titleOf(type, st.opts), remBox: !!amari && st.opts.amari !== 'none',
     };
@@ -254,7 +253,7 @@
     $('count').addEventListener('change', (e) => { st.n = clamp(e.target.value, 1, 50); update(true); });
     $('days').addEventListener('change', (e) => { st.d = clamp(e.target.value, 1, 20); update(true); });
     $('startDate').addEventListener('change', (e) => { st.sd = e.target.value; update(true); });
-    for (const [id, k] of [['skipWeekend', 'sk'], ['memo', 'memo'], ['guide', 'guide'], ['face', 'face'], ['time', 'time'], ['answers', 'ans'], ['triv', 'triv']])
+    for (const [id, k] of [['skipWeekend', 'sk'], ['face', 'face'], ['time', 'time'], ['answers', 'ans'], ['triv', 'triv']])
       $(id).addEventListener('change', (e) => { st[k] = e.target.checked; update(true); });
     let tt;
     $('title').addEventListener('input', (e) => { clearTimeout(tt); tt = setTimeout(() => { st.ttl = e.target.value.trim(); persist(); generate(); }, 300); });
