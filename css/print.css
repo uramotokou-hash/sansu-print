@@ -1,0 +1,53 @@
+/* プリント（A4ページ）の見た目。画面プレビュー・印刷・PDFで共通 */
+.page {
+  width: 210mm; height: 297mm; padding: 10mm; box-sizing: border-box;
+  background: #fff; color: #111; overflow: hidden; position: relative;
+  font-family: 'BIZ UDPGothic', 'BIZ UDゴシック', 'Hiragino Sans', 'Yu Gothic', sans-serif;
+  display: flex; flex-direction: column;
+}
+.page .phead { height: 21mm; display: flex; flex-direction: column; justify-content: space-between; border-bottom: 0.5mm solid #111; padding-bottom: 1.5mm; box-sizing: border-box; }
+.page .ptitle { font-size: 5.2mm; font-weight: 700; line-height: 1.2; }
+.page .ptitle .tag { display: inline-block; border: 0.4mm solid #c62828; color: #c62828; font-size: 3.8mm; padding: 0.3mm 2mm; margin-right: 2.5mm; border-radius: 1mm; vertical-align: 0.6mm; }
+.page .pname { align-self: flex-end; font-size: 4mm; display: flex; align-items: flex-end; gap: 2mm; }
+.page .pname .line { display: inline-block; width: 70mm; border-bottom: 0.3mm solid #111; height: 6mm; }
+.page .pbody { flex: 1; display: flex; flex-direction: column; gap: 5mm; padding-top: 3mm; }
+
+.page .day { border: 0.35mm solid #555; border-radius: 2mm; padding: 0 3mm 3mm; }
+.page .day.single { flex: 1; display: flex; flex-direction: column; }
+.page .day.single .grid { flex: 1; align-content: space-evenly; }
+.page .dhead { height: 12mm; display: flex; align-items: center; gap: 5mm; border-bottom: 0.25mm dashed #888; margin-bottom: 3mm; font-size: 4mm; }
+.page .dhead .date { font-weight: 700; font-size: 4.4mm; }
+.page .dhead i { display: inline-block; width: 8mm; border-bottom: 0.25mm solid #333; height: 5mm; margin: 0 0.8mm; font-style: normal; }
+.page .dhead i.s { width: 5mm; }
+.page .dhead .score { margin-left: auto; }
+.page .dhead .score i { width: 10mm; }
+.page .faces { display: inline-flex; gap: 2.5mm; }
+.page .face { display: inline-flex; flex-direction: column; align-items: center; line-height: 1; }
+.page .face svg { width: 7mm; height: 7mm; color: #222; }
+.page .facelabel { font-size: 2.2mm; margin-top: 0.4mm; color: #333; }
+
+.page .grid { display: grid; column-gap: 6mm; }
+
+/* 横式 */
+.page .yk { height: var(--yokoH); display: flex; align-items: center; font-size: var(--yoko); white-space: nowrap; gap: 0.25em; }
+.page .yk .no { font-size: var(--label); color: #555; width: 2.6em; flex: none; }
+.page .yk .expr { display: inline-flex; gap: 0.3em; font-variant-numeric: tabular-nums; }
+.page .yk .box { display: inline-block; height: 1.3em; border: 0.3mm solid #333; border-radius: 1mm; text-align: center; line-height: 1.3em; box-sizing: border-box; padding: 0 0.15em; }
+.page .yk .amari { font-size: 0.6em; margin-left: 0.3em; }
+
+/* 筆算（1マス1数字） */
+.page .grid.hissan { justify-items: center; }
+.page .hs { display: flex; flex-direction: column; }
+.page .hs .no { font-size: var(--label); color: #555; height: calc(var(--label) + 1.5mm); }
+.page .hgrid { display: grid; }
+.page .hgrid .c { width: var(--cell); height: var(--cell); box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: calc(var(--cell) * 0.68); font-variant-numeric: tabular-nums; }
+.page .hgrid .c.d, .page .hgrid .c.blankrow:not(.sign) { border: 0.2mm solid #b5b5b5; margin: 0 -0.1mm -0.1mm 0; }
+.page .hgrid .c.sign { justify-content: flex-end; padding-right: 0.8mm; }
+.page .hgrid .c.under { border-bottom: 0.55mm solid #111 !important; }
+.page .hgrid .c.memo { height: calc(var(--cell) * 0.55); align-items: flex-end; justify-content: flex-end; padding: 0 0.6mm 0.4mm 0; }
+.page .hgrid .c.memo span { width: 45%; height: 80%; border: 0.2mm dashed #999; box-sizing: border-box; }
+.page .hgrid .c.g { height: calc(var(--cell) * 0.5); font-size: calc(var(--cell) * 0.27); color: #333; font-weight: 700; white-space: nowrap; letter-spacing: -0.02em; }
+.page .hgrid .c.g:not(.sign) { background: #ececec; border-radius: 1mm 1mm 0 0; border: 0.2mm solid #b5b5b5; border-bottom: 0; margin-right: -0.1mm; }
+
+/* 答えのページ（赤） */
+.page.answer b { color: #c62828; font-weight: 700; }

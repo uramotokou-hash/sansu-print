@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>算数プリント自動生成メーカー</title>
+<meta name="description" content="学年と計算をえらぶだけで、日付入りの計算プリントをPDFで作れる無料アプリ。帯活動・知的学級にも。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/print.css">
+</head>
+<body>
+<header class="apphead">
+  <h1>算数プリント自動生成メーカー</h1>
+  <p>学年と計算をえらぶだけ。日付入りで、帯活動にもそのまま使えます。</p>
+</header>
+
+<main class="layout">
+  <form class="panel" id="form" onsubmit="return false">
+    <section class="step">
+      <h2><span class="num">1</span>学年</h2>
+      <div class="seg" id="grades"></div>
+      <p class="note" id="gradeNote" hidden>小数・分数（3〜6年）と5・6年の型は、次の版で追加します。</p>
+    </section>
+
+    <section class="step">
+      <h2><span class="num">2</span>計算の型</h2>
+      <div class="typelist" id="types"></div>
+      <p class="note">学年は目安です。ほかの学年のボタンから、どの型でもえらべます。</p>
+    </section>
+
+    <section class="step">
+      <h2><span class="num">3</span>むずかしさ</h2>
+      <div id="typeOpts"></div>
+      <div class="row" id="fmtRow">
+        <label class="lbl">書き方</label>
+        <div class="seg" id="fmt"></div>
+      </div>
+      <label class="check"><input type="checkbox" id="triv"> かんたんすぎる問題（＋0、×1 など）を入れない</label>
+    </section>
+
+    <section class="step">
+      <h2><span class="num">4</span>問題数と日数</h2>
+      <div class="row">
+        <label class="lbl" for="count">1日の問題数</label>
+        <div class="stepper"><button type="button" data-step="count:-1" aria-label="へらす">−</button><input type="number" id="count" min="1" max="50" inputmode="numeric"><button type="button" data-step="count:1" aria-label="ふやす">＋</button><span>問</span></div>
+      </div>
+      <div class="row">
+        <label class="lbl" for="days">何日分</label>
+        <div class="stepper"><button type="button" data-step="days:-1" aria-label="へらす">−</button><input type="number" id="days" min="1" max="20" inputmode="numeric"><button type="button" data-step="days:1" aria-label="ふやす">＋</button><span>日分</span></div>
+      </div>
+      <div class="row">
+        <label class="lbl">日付</label>
+        <div class="seg" id="dateMode"></div>
+      </div>
+      <div class="row" id="dateRow">
+        <label class="lbl" for="startDate">はじめの日</label>
+        <input type="date" id="startDate">
+        <label class="check inline"><input type="checkbox" id="skipWeekend"> 土日をとばす</label>
+      </div>
+      <div class="row col">
+        <label class="lbl">問題の出し方（2日目から）</label>
+        <div class="seg wrap" id="mode"></div>
+      </div>
+    </section>
+
+    <section class="step">
+      <h2><span class="num">5</span>プリントのかたち</h2>
+      <div class="row col">
+        <label class="lbl">レイアウト</label>
+        <div class="seg" id="layoutSel"></div>
+      </div>
+      <div class="row">
+        <label class="lbl">文字とマスの大きさ</label>
+        <div class="seg" id="size"></div>
+      </div>
+      <div class="row col" id="hissanAids">
+        <label class="lbl">筆算の手助け</label>
+        <label class="check"><input type="checkbox" id="memo"> くり上がり・くり下がりのメモマス</label>
+        <label class="check"><input type="checkbox" id="guide"> 位のガイド（一・十・百…）</label>
+      </div>
+      <div class="row col">
+        <label class="lbl">つける欄</label>
+        <label class="check"><input type="checkbox" id="face"> 手ごたえマーク（顔3つに丸をつける）</label>
+        <label class="check"><input type="checkbox" id="time"> かかった時間</label>
+        <label class="check"><input type="checkbox" id="answers"> 答えのページ（最後につく）</label>
+      </div>
+      <div class="row col">
+        <label class="lbl" for="title">タイトル</label>
+        <input type="text" id="title" maxlength="40" placeholder="自動で入ります">
+      </div>
+    </section>
+  </form>
+
+  <section class="preview">
+    <div class="actions">
+      <p class="info" id="info" role="status"></p>
+      <div class="btns">
+        <button type="button" class="primary" id="btnPdf">PDFをダウンロード</button>
+        <button type="button" id="btnPrint">印刷する</button>
+        <button type="button" id="btnRegen">問題をつくりなおす</button>
+        <button type="button" id="btnShare">この設定のリンクをコピー</button>
+      </div>
+      <p class="warn" id="warn" role="alert" hidden></p>
+    </div>
+    <div class="pages" id="pages"></div>
+  </section>
+</main>
+
+<div id="capture" aria-hidden="true"></div>
+<footer class="appfoot">算数プリント自動生成メーカー ・ 入力した内容はこの端末の中だけで使われ、どこにも送られません。</footer>
+
+<script src="js/generators.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
