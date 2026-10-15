@@ -22,44 +22,85 @@
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const opText = (op) => ({ '+': '+', '-': '−', '×': '×', '÷': '÷' }[op] || op);
 
-  // ---------- 筆算の形 ----------
-  function hissanShape(p) {
-    const [a, b] = p.terms, op = p.ops[0];
-    if (op === '×' && b >= 10) {
-      const W = nd(a) + nd(b);
-      return { kind: 'mul2', W, rows: 5 };
+  // ---------- 筆算の形（整数・小数） ----------
+  // 各行：dig＝数字だけの並び、frac＝小数部分のけた数、pad＝右につめる空きマス
+  function hModel(p) {
+    const [a, b] = p.terms.map(String), op = p.ops[0];
+    const split = (x) => { const [i, f = ''] = x.split('.'); return { dig: i + f, frac: f.length }; };
+    const A = split(a), B = split(b);
+    const trailZeros = (dig, frac) => { let k = 0; while (k < frac && dig[dig.length - 1 - k] === '0') k++; return k; };
+    let rows, ans, partial = 0;
+    if (op === '+' || op === '-') {
+      const F = Math.max(A.frac, B.frac);
+      const sc = (x) => Number(x.dig) * 10 ** (F - x.frac);
+      const res = op === '+' ? sc(A) + sc(B) : sc(A) - sc(B);
+      const dig = String(res).padStart(F + 1, '0');
+      rows = [{ dig: A.dig, frac: A.frac, pad: F - A.frac }, { dig: B.dig, frac: B.frac, pad: F - B.frac, sign: op }];
+      ans = { dig, frac: F, pad: 0, strike: trailZeros(dig, F) };
+    } else {
+      const places = A.frac + B.frac;
+      const dig = String(Number(A.dig) * Number(B.dig)).padStart(places + 1, '0');
+      rows = [{ dig: A.dig, frac: A.frac, pad: 0 }, { dig: B.dig, frac: B.frac, pad: 0, sign: op }];
+      ans = { dig, frac: places, pad: 0, strike: trailZeros(dig, places) };
+      if (Number(B.dig) >= 10) partial = 2;
     }
-    const W = Math.max(nd(a), nd(b), nd(p.ans));
-    return { kind: 'basic', W, rows: 3 };
+    let W = Math.max(...rows.concat([ans]).map((x) => x.dig.length + x.pad));
+    if (partial) W = Math.max(W, String(Number(A.dig)).length + String(Number(B.dig)).length);
+    return { rows, ans, partial, W, nrows: 3 + partial };
   }
+
+  const FR = /^(?:(\d+)\s+)?(\d+)\/(\d+)$/;
+  // 横式の幅の見積もり（em）
+  function numEm(t) {
+    const m = String(t).match(FR);
+    if (!m) { const x = String(t); return x.replace('.', '').length * 0.62 + (x.includes('.') ? 0.3 : 0) + 0.3; }
+    return (m[1] ? m[1].length * 0.62 + 0.15 : 0) + Math.max(m[2].length, m[3].length) * 0.46 + 0.6;
+  }
+  function fracAnswerParts(ans) {
+    const x = G.parseNum(ans);
+    const mixed = G.mixedStr(x.n, x.d);
+    const improper = x.d !== 1 && x.n > x.d ? G.fracStr(x.n, x.d) : null;
+    return { mixed, improper };
+  }
+  function ansEm(p) {
+    if (p.kind === 'frac') {
+      const f = fracAnswerParts(p.ans);
+      return Math.max(3.3, numEm(f.mixed) + (f.improper ? numEm(f.improper) + 1.3 : 0));
+    }
+    return Math.max(2.4, nd(p.ans) * 0.72 + 1.2);
+  }
+  const remEm = (p) => Math.max(2.6, nd(p.rem ?? '') * 0.72 + 1.2);
 
   function measure(cfg, allProblems) {
     const s = SIZES[cfg.size] || SIZES.M;
     const gapX = 6;
     if (cfg.fmt === 'hissan') {
-      let W = 1, rows = 3, kind = 'basic';
+      let W = 1, rows = 3;
       for (const p of allProblems) {
-        const sh = hissanShape(p);
-        W = Math.max(W, sh.W);
-        if (sh.rows > rows) { rows = sh.rows; kind = sh.kind; }
+        const mo = hModel(p);
+        W = Math.max(W, mo.W);
+        rows = Math.max(rows, mo.nrows);
       }
       const itemW = (W + 1) * s.cell;
       const itemH = rows * s.cell + s.label + 1.5;
       const cols = Math.max(1, Math.min(5, Math.floor((CONTENT_W + gapX) / (itemW + gapX + 4))));
-      return { s, W, rows, kind, itemW, itemH, rowGap: 5, cols };
+      return { s, W, rows, itemW, itemH, rowGap: 5, cols };
     }
     // 横式：いちばん長い式の幅を見積もって、1行に入る問題数を決める（最大4列）
     let em = 0;
+    const frac = allProblems.some((p) => p.kind === 'frac');
+    const work = frac && cfg.work;
     for (const p of allProblems) {
-      let w = 0.9 + Math.max(2.4, nd(p.ans) * 0.72 + 1.2) + 0.5;
-      p.terms.forEach((t) => { w += nd(t) * 0.62 + 0.3; });
-      w += p.ops.length * 0.95;
-      if (cfg.remBox) w += 1.9 + 2.6 + 0.4;
+      let w = 0.9 + ansEm(p) + 0.5;
+      p.terms.forEach((t) => { w += numEm(t); });
+      w += p.ops.length * 0.95 + (p.paren ? 0.9 : 0) + (p.round ? 0.9 : 0);
+      if (cfg.remBox) w += 1.9 + remEm(p) + 0.4;
       em = Math.max(em, w);
     }
     const itemW = em * s.yokoFont + 2.6 * s.label; // 2.6*label = 問題番号の幅
-    const cols = Math.max(1, Math.min(4, Math.floor((CONTENT_W - 6 + gapX) / (itemW + gapX))));
-    return { s, itemH: s.yokoH, rowGap: 1.5, cols };
+    const cols = Math.max(1, Math.min(work ? 2 : 4, Math.floor((CONTENT_W - 6 + gapX) / (itemW + gapX))));
+    const itemH = s.yokoH * (frac ? 1.75 : 1) + (work ? s.yokoH * 1.2 : 0);
+    return { s, itemH, rowGap: frac ? 3 : 1.5, cols, frac, work };
   }
 
   // 問題数に合わせて列をならす（例：6問・最大5列 → 3列×2行）
@@ -83,19 +124,23 @@
     return Object.assign(m, { maxCount, perPage, pages, blockH, useCols });
   }
 
+  const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  // 日付の一覧：算数がある曜日だけ・とばす日をのぞいて、はじめの日から順に
   function dateList(cfg) {
     const out = [];
     if (cfg.dateMode !== 'auto' || !cfg.startDate) {
       for (let i = 0; i < cfg.days; i++) out.push(null);
       return out;
     }
+    const wd = cfg.weekdays && cfg.weekdays.length ? new Set(cfg.weekdays) : null;
+    const skip = new Set(cfg.skipDates || []);
     const [y, mo, da] = cfg.startDate.split('-').map(Number);
     const d = new Date(y, mo - 1, da);
-    while (out.length < cfg.days) {
-      const w = d.getDay();
-      if (!(cfg.skipWeekend && (w === 0 || w === 6))) out.push(new Date(d));
+    for (let guard = 0; out.length < cfg.days && guard < 800; guard++) {
+      if ((!wd || wd.has(d.getDay())) && !skip.has(ymd(d))) out.push(new Date(d));
       d.setDate(d.getDate() + 1);
     }
+    while (out.length < cfg.days) out.push(null);
     return out;
   }
 
@@ -135,56 +180,72 @@
       <span class="score"><i></i>/ ${cfg.count}もん</span></div>`;
   }
 
-  function yokoItem(p, n, cfg, answer, ansW) {
+  function numHtml(t) {
+    const m = String(t).match(FR);
+    if (!m) return `<span class="num">${t}</span>`;
+    return `${m[1] ? `<span class="num">${m[1]}</span>` : ''}<span class="fr"><span>${m[2]}</span><span>${m[3]}</span></span>`;
+  }
+
+  function yokoItem(p, n, cfg, answer, ansW, remW) {
     const parts = [];
     p.terms.forEach((t, i) => {
       if (i > 0) parts.push(`<span class="op">${opText(p.ops[i - 1])}</span>`);
-      parts.push(`<span class="num">${t}</span>`);
+      const open = (p.paren === 'L' && i === 0) || (p.paren === 'R' && i === 1);
+      const close = (p.paren === 'L' && i === 1) || (p.paren === 'R' && i === 2);
+      parts.push(`${open ? '<span class="pa">(</span>' : ''}${numHtml(t)}${close ? '<span class="pa">)</span>' : ''}`);
     });
     const box = (v, w) => `<span class="box" style="min-width:${w}em">${answer && v !== '' ? `<b>${v}</b>` : ''}</span>`;
+    let ansHtml;
+    if (p.kind === 'frac') {
+      if (answer) {
+        const f = fracAnswerParts(p.ans);
+        ansHtml = `<span class="fans"><b>${numHtml(f.mixed)}</b>${f.improper ? `<b class="imp">（${numHtml(f.improper)}）</b>` : ''}</span>`;
+      } else ansHtml = '<span class="fbox"><span class="w"></span><span class="f"><span></span><i></i><span></span></span></span>';
+    } else ansHtml = (p.round ? '<span class="yaku">約</span>' : '') + box(p.ans, ansW);
     let rem = '';
     if (cfg.remBox) {
       const v = p.rem ? p.rem : (answer ? 'なし' : '');
-      rem = `<span class="amari">あまり</span>${box(v, 2.6)}`;
+      rem = `<span class="amari">あまり</span>${box(v, remW)}`;
     }
-    return `<div class="yk"><span class="no">(${n})</span><span class="expr">${parts.join('')}<span class="op">=</span></span>${box(p.ans, ansW)}${rem}</div>`;
+    const row = `<div class="yk${p.kind === 'frac' ? ' frac' : ''}"><span class="no">(${n})</span><span class="expr">${parts.join('')}<span class="op">=</span></span>${ansHtml}${rem}</div>`;
+    if (p.kind === 'frac' && cfg.work) return `<div class="ykw">${row}<div class="work"><span>とちゅうの式</span></div></div>`;
+    return row;
   }
 
   function hissanItem(p, n, cfg, m, answer) {
     const W = m.W, cols = W + 1;
-    const [a, b] = p.terms, op = p.ops[0];
+    const mo = hModel(p);
     const cells = [];
-    const digitsRow = (val, shift, cls, sign, show) => {
-      const str = val === null ? '' : String(val);
-      const row = [`<div class="c sign ${cls}">${sign ? opText(sign) : ''}</div>`];
+    const rowHtml = (row, cls, show) => {
+      const out = [`<div class="c sign ${cls}">${row && row.sign ? opText(row.sign) : ''}</div>`];
       for (let i = 0; i < W; i++) {
-        const fromRight = W - 1 - i - shift;
-        const ch = fromRight >= 0 && fromRight < str.length ? str[str.length - 1 - fromRight] : '';
-        row.push(`<div class="c d ${cls}">${show && ch ? (cls.includes('ans') ? `<b>${ch}</b>` : ch) : ''}</div>`);
+        const r0 = W - 1 - i; // 右から何マスめか
+        let ch = '', dp = false, z = false;
+        if (row && show) {
+          const k = r0 - row.pad;
+          if (k >= 0 && k < row.dig.length) ch = row.dig[row.dig.length - 1 - k];
+          if (row.frac > 0 && r0 === row.pad + row.frac) dp = true;
+          if (row.strike && k >= 0 && k < row.strike) z = true;
+        }
+        const inner = ch ? (cls.includes('ans') ? `<b${z ? ' class="z"' : ''}>${ch}</b>` : ch) : '';
+        out.push(`<div class="c d ${cls}${dp ? ' dp' : ''}">${inner}</div>`);
       }
-      return row.join('');
+      return out.join('');
     };
-    cells.push(digitsRow(a, 0, 'n', null, true));
-    cells.push(digitsRow(b, 0, 'n under', op, true));
-    let rowsUsed = 3;
-    if (op === '×' && b >= 10) {
-      cells.push(digitsRow(null, 0, 'n', null, false));
-      cells.push(digitsRow(null, 1, 'n under', null, false));
-      rowsUsed = 5;
-    }
+    cells.push(rowHtml(mo.rows[0], 'n', true));
+    cells.push(rowHtml(mo.rows[1], 'n under', true));
+    for (let k = 0; k < mo.partial; k++) cells.push(rowHtml(null, k === mo.partial - 1 ? 'n under' : 'n', false));
     // 形がちがう問題がまじるときに高さをそろえる
-    for (let k = rowsUsed; k < m.rows; k++) {
-      if (k === m.rows - 1) break;
-      cells.push(`<div class="c sign blankrow"></div>` + '<div class="c blankrow"></div>'.repeat(W));
-    }
-    cells.push(digitsRow(p.ans, 0, 'n ans', null, answer));
+    for (let k = mo.nrows; k < m.rows; k++) cells.push(`<div class="c sign blankrow"></div>` + '<div class="c blankrow"></div>'.repeat(W));
+    cells.push(rowHtml(mo.ans, 'n ans', answer));
     return `<div class="hs" style="width:${(W + 1) * m.s.cell}mm"><span class="no">(${n})</span>
       <div class="hgrid" style="grid-template-columns:repeat(${cols},var(--cell))">${cells.join('')}</div></div>`;
   }
 
   function dayBlock(cfg, m, list, date, answer, single) {
     const ansW = Math.max(2.4, Math.max(...list.map((p) => nd(p.ans))) * 0.72 + 1.2);
-    const items = list.map((p, i) => cfg.fmt === 'hissan' ? hissanItem(p, i + 1, cfg, m, answer) : yokoItem(p, i + 1, cfg, answer, ansW));
+    const remW = Math.max(...list.map(remEm));
+    const items = list.map((p, i) => cfg.fmt === 'hissan' ? hissanItem(p, i + 1, cfg, m, answer) : yokoItem(p, i + 1, cfg, answer, ansW, remW));
     return `<section class="day${single ? ' single' : ''}">${dayHead(cfg, date, answer)}
       <div class="grid ${cfg.fmt}" style="grid-template-columns:repeat(${m.useCols},1fr);row-gap:${m.rowGap}mm">${items.join('')}</div></section>`;
   }
@@ -219,5 +280,5 @@
     return { html: pages.join(''), plan: pl, pageCount: pages.length };
   }
 
-  root.SansuLayout = { FEELINGS, render, plan, measure, SIZES, PAGE };
+  root.SansuLayout = { FEELINGS, dateList, ymd, render, plan, measure, SIZES, PAGE };
 })(window);

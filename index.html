@@ -22,7 +22,6 @@
     <section class="step">
       <h2><span class="num">1</span>学年</h2>
       <div class="seg" id="grades"></div>
-      <p class="note" id="gradeNote" hidden>小数・分数（3〜6年）と5・6年の型は、次の版で追加します。</p>
     </section>
 
     <section class="step">
@@ -38,6 +37,7 @@
         <label class="lbl">書き方</label>
         <div class="seg" id="fmt"></div>
       </div>
+      <label class="check" id="workRow"><input type="checkbox" id="work"> 途中の式を書く欄をつける（分数）</label>
       <label class="check"><input type="checkbox" id="triv"> かんたんすぎる問題（＋0、×1 など）を入れない</label>
     </section>
 
@@ -55,10 +55,20 @@
         <label class="lbl">日付</label>
         <div class="seg" id="dateMode"></div>
       </div>
-      <div class="row" id="dateRow">
-        <label class="lbl" for="startDate">はじめの日</label>
-        <input type="date" id="startDate">
-        <label class="check inline"><input type="checkbox" id="skipWeekend"> 土日をとばす</label>
+      <div id="dateRow">
+        <div class="row">
+          <label class="lbl" for="startDate">はじめの日</label>
+          <input type="date" id="startDate">
+        </div>
+        <div class="row col">
+          <label class="lbl">算数がある曜日</label>
+          <div class="seg" id="weekdays"></div>
+        </div>
+        <div class="row col">
+          <label class="lbl">日付（算数がない日はタップでとばす）</label>
+          <div class="chips" id="dateChips"></div>
+          <button type="button" class="linkbtn" id="btnUnskip" hidden>とばした日をもとにもどす</button>
+        </div>
       </div>
       <div class="row col">
         <label class="lbl">問題の出し方（2日目から）</label>
@@ -78,12 +88,13 @@
       </div>
       <div class="row col">
         <label class="lbl">つける欄</label>
-        <label class="check"><input type="checkbox" id="face"> 手ごたえマーク（丸をつける）</label>
+        <span class="lbl sm">手ごたえマーク（子どもが丸をつける）</span>
         <div class="sub" id="feelOpts">
-          <span class="lbl">表し方</span>
           <div class="seg" id="feelStyle"></div>
-          <span class="lbl">入れることば（タップで入れる・はずす）</span>
-          <div class="seg wrap" id="feelWords"></div>
+          <div id="feelWordsRow">
+            <span class="lbl">入れることば（タップで入れる・はずす）</span>
+            <div class="seg wrap" id="feelWords"></div>
+          </div>
         </div>
         <label class="check"><input type="checkbox" id="time"> かかった時間</label>
         <label class="check"><input type="checkbox" id="answers"> 答えのページ（最後につく）</label>

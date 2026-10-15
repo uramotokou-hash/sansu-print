@@ -38,6 +38,26 @@
 .page .yk .box { display: inline-block; height: 1.3em; border: 0.3mm solid #333; border-radius: 1mm; text-align: center; line-height: 1.3em; box-sizing: border-box; padding: 0 0.15em; }
 .page .yk .amari { font-size: 0.6em; margin-left: 0.3em; }
 
+/* 分数（縦書き）・四則混合 */
+.page .yk.frac { height: calc(var(--yokoH) * 1.75); }
+.page .fr { display: inline-flex; flex-direction: column; align-items: center; font-size: 0.72em; line-height: 1.12; vertical-align: middle; }
+.page .fr > span { padding: 0 0.22em; }
+.page .fr > span:first-child { border-bottom: 0.3mm solid currentColor; }
+.page .yk .expr { align-items: center; }
+.page .yk .pa { margin: 0 -0.05em; }
+.page .yk .yaku { font-size: 0.7em; margin-right: 0.1em; }
+.page .fbox { display: inline-flex; align-items: center; gap: 0.2em; }
+.page .fbox .w { width: 1.15em; height: 1.3em; border: 0.3mm solid #333; border-radius: 1mm; box-sizing: border-box; }
+.page .fbox .f { display: inline-flex; flex-direction: column; align-items: center; gap: 0.1em; }
+.page .fbox .f > span { width: 1.55em; height: 0.95em; border: 0.3mm solid #333; border-radius: 0.8mm; box-sizing: border-box; }
+.page .fbox .f > i { width: 1.9em; border-top: 0.35mm solid #111; }
+.page .fans { display: inline-flex; align-items: center; gap: 0.25em; }
+.page .fans b { display: inline-flex; align-items: center; gap: 0.12em; }
+.page .fans .imp { font-size: 0.85em; }
+.page .ykw { display: flex; flex-direction: column; }
+.page .work { height: calc(var(--yokoH) * 1.2); margin-left: calc(var(--label) * 2.6); border-bottom: 0.25mm dashed #888; }
+.page .work span { font-size: 2.4mm; color: #777; }
+
 /* 筆算（1マス1数字） */
 .page .grid.hissan { justify-items: center; }
 .page .hs { display: flex; flex-direction: column; }
@@ -47,6 +67,13 @@
 .page .hgrid .c.d, .page .hgrid .c.blankrow:not(.sign) { border: 0.2mm solid #b5b5b5; margin: 0 -0.1mm -0.1mm 0; }
 .page .hgrid .c.sign { justify-content: flex-end; padding-right: 0.8mm; }
 .page .hgrid .c.under { border-bottom: 0.55mm solid #111 !important; }
+
+/* 小数点（マスとマスの間の下） */
+.page .hgrid .c.dp { position: relative; }
+.page .hgrid .c.dp::after { content: ''; position: absolute; right: -0.6mm; bottom: 0.5mm; width: 1.2mm; height: 1.2mm; border-radius: 50%; background: #111; z-index: 1; }
+.page.answer .hgrid .c.ans.dp::after { background: #c62828; }
+.page .hgrid b.z { position: relative; }
+.page .hgrid b.z::after { content: ''; position: absolute; left: -15%; right: -15%; top: 50%; border-top: 0.3mm solid #c62828; transform: rotate(-55deg); }
 
 /* 答えのページ（赤） */
 .page.answer b { color: #c62828; font-weight: 700; }

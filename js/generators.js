@@ -58,6 +58,51 @@
     return k;
   }
 
+  // ---------- 小数・分数の部品（すべて整数で正確に計算する） ----------
+  function gcd(a, b) { a = Math.abs(a); b = Math.abs(b); while (b) { [a, b] = [b, a % b]; } return a; }
+  const lcm = (a, b) => (a / gcd(a, b)) * b;
+  // 小数：n を 10^s でわった値の文字列（末尾の0はけずる）
+  function decStr(n, s) {
+    if (!s) return String(n);
+    let str = String(Math.abs(n)).padStart(s + 1, '0');
+    let ip = str.slice(0, -s), fp = str.slice(-s).replace(/0+$/, '');
+    return (n < 0 ? '-' : '') + ip + (fp ? '.' + fp : '');
+  }
+  // 小数第1位まで（がい数用、末尾の0を残す）
+  const fixed1 = (v) => `${Math.floor(v / 10)}.${v % 10}`;
+  // 最後の位が0でない、小数s位の数（10^s倍の整数で返す）
+  function rndDec(r, lo, hi, s) {
+    for (let t = 0; t < 50; t++) { const n = ri(r, lo, hi); if (!s || n % 10 !== 0) return n; }
+    return null;
+  }
+  // 分数の表し方：仮分数 "7/5"、整数 "1"、帯分数 "1 2/5"
+  function fracStr(n, d) { const g = gcd(n, d); n /= g; d /= g; return d === 1 ? String(n) : `${n}/${d}`; }
+  function mixedStr(n, d) {
+    const w = Math.floor(n / d), r0 = n % d;
+    if (!r0) return String(w);
+    return w ? `${w} ${r0}/${d}` : `${r0}/${d}`;
+  }
+  // 数の文字列 → 分数 {n, d}
+  function parseNum(s) {
+    s = String(s).trim();
+    let m = s.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+    if (m) { const d = +m[3]; return red(+m[1] * d + +m[2], d); }
+    m = s.match(/^(\d+)\/(\d+)$/);
+    if (m) return red(+m[1], +m[2]);
+    m = s.match(/^(-?)(\d+)(?:\.(\d+))?$/);
+    if (m) { const f = m[3] || ''; return red((m[1] ? -1 : 1) * +(m[2] + f), 10 ** f.length); }
+    throw new Error('bad number ' + s);
+  }
+  function red(n, d) { if (d < 0) { n = -n; d = -d; } const g = gcd(n, d) || 1; return { n: n / g, d: d / g }; }
+  const rAdd = (a, b) => red(a.n * b.d + b.n * a.d, a.d * b.d);
+  const rSub = (a, b) => red(a.n * b.d - b.n * a.d, a.d * b.d);
+  const rMul = (a, b) => red(a.n * b.n, a.d * b.d);
+  const rDiv = (a, b) => red(a.n * b.d, a.d * b.n);
+  function rToDec(x) {
+    for (let k = 0; k <= 8; k++) { const p = 10 ** k; if (p % x.d === 0) return decStr(x.n * (p / x.d), k); }
+    return null; // わり切れない
+  }
+
   // 「くり上がり」系の条件判定。mix は問題番号で なし／あり を半々にする
   function wantLevel(level, idx) {
     if (level === 'mix') return idx % 2 === 0 ? 'none' : 'some';
@@ -82,6 +127,67 @@
 
   // 問題オブジェクト：{ terms:[...], ops:[...], ans, rem? }
   const P = (terms, ops, ans, rem) => (rem === undefined ? { terms, ops, ans } : { terms, ops, ans, rem });
+
+  const PLACES = { key: 'pl', label: '位', inTitle: false, choices: [['same', 'どちらも1/100の位まで'], ['diff', '位の数がちがう（例 2.35＋1.4）']], def: 'diff' };
+  const FORM4 = { key: 'form', label: '数の書き方', inTitle: false, choices: [['mixed', '帯分数'], ['improper', '仮分数'], ['mix', 'まぜる']], def: 'mix' };
+  const YAKU5 = { key: 'yaku', label: '答えの約分', inTitle: true, choices: [['none', 'なし'], ['some', 'あり'], ['mix', 'まぜる']], def: 'mix' };
+  const MIXED5 = { key: 'mixed', label: '帯分数', inTitle: false, choices: [['no', 'ふくまない'], ['yes', 'ふくむ']], def: 'no' };
+  const CANCEL6 = { key: 'cancel', label: 'とちゅうの約分', inTitle: false, choices: [['many', 'できる問題を多めに'], ['any', 'とくに決めない']], def: 'many' };
+
+  // 4年：小数2つ（100倍の整数で返す）
+  function twoDecs(o, r) {
+    const a = rndDec(r, 11, 1999, 2);
+    let b;
+    if (o.pl === 'same') b = rndDec(r, 11, 1999, 2);
+    else b = r() < 0.75 ? (rndDec(r, 1, 199, 1) ?? 0) * 10 : ri(r, 1, 19) * 100;
+    if (a === null || !b) return [null, null];
+    return r() < 0.5 ? [a, b] : [b, a];
+  }
+  function showFrac(n, d, form, r) {
+    const f = form === 'mix' ? (r() < 0.5 ? 'mixed' : 'improper') : form;
+    return f === 'mixed' ? mixedStr(n, d) : `${n}/${d}`;
+  }
+  function properFrac(r) {
+    for (let t = 0; t < 50; t++) { const d = ri(r, 2, 12), n = ri(r, 1, d - 1); if (gcd(n, d) === 1) return [n, d]; }
+    return [1, 2];
+  }
+  function cancelOk(o, i, can) { return o.cancel === 'many' && i % 3 !== 2 ? can : true; }
+  function frac5(o, r, i, op) {
+    const [n1, d1] = properFrac(r), [n2, d2] = properFrac(r);
+    if (d1 === d2) return null;
+    const l = lcm(d1, d2);
+    if (l > 40) return null;
+    let w1 = 0, w2 = 0;
+    if (o.mixed === 'yes') { w1 = ri(r, 0, 3); w2 = ri(r, 0, 2); if (!w1 && !w2) return null; }
+    const A = (w1 * d1 + n1) * (l / d1), B = (w2 * d2 + n2) * (l / d2);
+    const S = op === '+' ? A + B : A - B;
+    if (S <= 0) return null;
+    const reducible = gcd(S, l) > 1;
+    const want = wantLevel(o.yaku, i);
+    if ((want === 'none' && reducible) || (want === 'some' && !reducible)) return null;
+    return P([mixedStr(w1 * d1 + n1, d1), mixedStr(w2 * d2 + n2, d2)], [op], fracStr(S, l));
+  }
+  // 整数の四則（計算のきまり）。わり切れないとき・負になるとき・大きすぎるときは null
+  function ap(x, op, y) {
+    if (x === null || y === null) return null;
+    switch (op) {
+      case '+': return x + y;
+      case '-': return x - y < 0 ? null : x - y;
+      case '×': return x * y;
+      case '÷': return y && x % y === 0 ? x / y : null;
+    }
+  }
+  function evalInt(t, ops, paren) {
+    let v;
+    if (paren === 'L' && !ap(t[0], ops[0], t[1])) return null; // （ ）の中が0にならないように
+    if (paren === 'R' && !ap(t[1], ops[1], t[2])) return null;
+    if (paren === 'L') v = ap(ap(t[0], ops[0], t[1]), ops[1], t[2]);
+    else if (paren === 'R') v = ap(t[0], ops[0], ap(t[1], ops[1], t[2]));
+    else if ((ops[1] === '×' || ops[1] === '÷') && (ops[0] === '+' || ops[0] === '-')) v = ap(t[0], ops[0], ap(t[1], ops[1], t[2]));
+    else v = ap(ap(t[0], ops[0], t[1]), ops[1], t[2]);
+    return v === null || v < 1 || v > 300 ? null : v;
+  }
+  const evalLeft = (t, ops) => ap(ap(t[0], ops[0], t[1]), ops[1], t[2]);
 
   // ---------- 計算の型の一覧 ----------
   const TYPES = [
@@ -283,6 +389,218 @@
         return rem ? P([a, b], ['÷'], q, rem) : P([a, b], ['÷'], q);
       },
     },
+    // ===== 小数 =====
+    {
+      id: 'g3_dec_add', grade: 3, kind: 'dec', label: '小数のたし算（1/10の位）', hissan: true, defFmt: 'hissan', options: [KURI_ADD],
+      gen(o, r, i) {
+        const a = rndDec(r, 1, 99, 1), b = rndDec(r, 1, 99, 1);
+        if (a === null || b === null) return null;
+        if (!matchLevel(carries(a, b), wantLevel(o.kuri, i))) return null;
+        return P([decStr(a, 1), decStr(b, 1)], ['+'], decStr(a + b, 1));
+      },
+    },
+    {
+      id: 'g3_dec_sub', grade: 3, kind: 'dec', label: '小数のひき算（1/10の位）', hissan: true, defFmt: 'hissan', options: [KURI_SUB],
+      gen(o, r, i) {
+        // 2割は「整数−小数」（例：5−2.3）
+        const a = r() < 0.2 ? ri(r, 2, 9) * 10 : rndDec(r, 11, 99, 1);
+        const b = rndDec(r, 1, 99, 1);
+        if (a === null || b === null || b >= a) return null;
+        if (!matchLevel(borrows(a, b), wantLevel(o.kuri, i))) return null;
+        return P([decStr(a, 1), decStr(b, 1)], ['-'], decStr(a - b, 1));
+      },
+    },
+    {
+      id: 'g4_dec_add', grade: 4, kind: 'dec', label: '小数のたし算（1/100の位）', hissan: true, defFmt: 'hissan', options: [PLACES],
+      gen(o, r) {
+        const [a, b] = twoDecs(o, r);
+        if (a === null) return null;
+        return P([decStr(a, 2), decStr(b, 2)], ['+'], decStr(a + b, 2));
+      },
+    },
+    {
+      id: 'g4_dec_sub', grade: 4, kind: 'dec', label: '小数のひき算（1/100の位）', hissan: true, defFmt: 'hissan', options: [PLACES],
+      gen(o, r) {
+        let [a, b] = twoDecs(o, r);
+        if (a === null || a === b) return null;
+        if (a < b) [a, b] = [b, a];
+        return P([decStr(a, 2), decStr(b, 2)], ['-'], decStr(a - b, 2));
+      },
+    },
+    {
+      id: 'g4_dec_mulint', grade: 4, kind: 'dec', label: '小数×整数', hissan: true, defFmt: 'hissan',
+      options: [
+        { key: 'ap', label: 'かけられる数', inTitle: false, choices: [['1', '1/10の位まで'], ['2', '1/100の位まで']], def: '1' },
+        { key: 'bd', label: 'かける数', inTitle: true, tl: '', choices: [['1', '1けた'], ['2', '2けた']], def: '1' },
+      ],
+      gen(o, r) {
+        const s = Number(o.ap), a = rndDec(r, 11, s === 1 ? 99 : 999, s);
+        const b = o.bd === '1' ? ri(r, 2, 9) : ri(r, 11, 99);
+        if (a === null || (o.triv && b % 10 === 0)) return null;
+        return P([decStr(a, s), String(b)], ['×'], decStr(a * b, s));
+      },
+    },
+    {
+      id: 'g4_dec_divint', grade: 4, kind: 'dec', label: '小数÷整数（わり切れる）', hissan: false, defFmt: 'yoko',
+      options: [{ key: 'bd', label: 'わる数', inTitle: false, choices: [['1', '1けた'], ['2', '2けた']], def: '1' }],
+      gen(o, r) {
+        const b = o.bd === '1' ? ri(r, 2, 9) : ri(r, 11, 30);
+        const s = r() < 0.6 ? 1 : 2, q = rndDec(r, 1, s === 1 ? 99 : 999, s);
+        if (q === null) return null;
+        const a = q * b;
+        if (a >= 1000 * 10 ** s) return null;
+        const as = decStr(a, s);
+        if (!as.includes('.')) return null; // わられる数は小数にする
+        return P([as, String(b)], ['÷'], decStr(q, s));
+      },
+    },
+    {
+      id: 'g5_dec_mul', grade: 5, kind: 'dec', label: '小数×小数', hissan: true, defFmt: 'hissan',
+      options: [{ key: 'bs', label: 'かける数', inTitle: false, choices: [['1', '0.□（例 0.4）'], ['2', '□.□（例 2.3）']], def: '2' }],
+      gen(o, r) {
+        const sa = r() < 0.6 ? 1 : 2, a = rndDec(r, 11, sa === 1 ? 99 : 999, sa);
+        const b = o.bs === '1' ? ri(r, o.triv ? 2 : 1, 9) : rndDec(r, 11, 99, 1);
+        if (a === null || b === null) return null;
+        return P([decStr(a, sa), decStr(b, 1)], ['×'], decStr(a * b, sa + 1));
+      },
+    },
+    {
+      id: 'g5_dec_div', grade: 5, kind: 'dec', label: '小数÷小数', hissan: false, defFmt: 'yoko',
+      hasRem: (o) => o.dm === 'amari',
+      options: [{ key: 'dm', label: 'わり算', inTitle: true, tl: '', choices: [['exact', 'わり切れる'], ['round', '商を四捨五入して1/10の位まで'], ['amari', '商は一の位まで・あまりを出す']], def: 'exact' }],
+      gen(o, r) {
+        const b = rndDec(r, 2, 99, 1); // 0.2〜9.9
+        if (b === null) return null;
+        if (o.dm === 'exact') {
+          const sq = r() < 0.5 ? 0 : 1, q = sq ? rndDec(r, 11, 99, 1) : ri(r, 2, 40);
+          if (q === null) return null;
+          const a = q * b, as = decStr(a, sq + 1);
+          if (a / 10 ** (sq + 1) >= 100) return null;
+          return P([as, decStr(b, 1)], ['÷'], decStr(q, sq));
+        }
+        if (o.dm === 'round') {
+          const a = rndDec(r, 11, 999, 1);
+          if (a === null || (a * 10) % b === 0) return null; // 1/10の位でわり切れるものは除く
+          const v = Math.floor((20 * a + b) / (2 * b)); // 10倍した四捨五入の値
+          if (v < 1) return null;
+          return Object.assign(P([decStr(a, 1), decStr(b, 1)], ['÷'], fixed1(v)), { round: 1 });
+        }
+        const q = ri(r, 2, 30), rem = ri(r, 1, b - 1), a = b * q + rem;
+        if (a % 10 === 0 || rem % 10 === 0) return null; // あまりも小数にする
+        return P([decStr(a, 1), decStr(b, 1)], ['÷'], String(q), decStr(rem, 1));
+      },
+    },
+    // ===== 分数 =====
+    {
+      id: 'g3_frac_add', grade: 3, kind: 'frac', label: '分数のたし算（分母が同じ）', hissan: false, defFmt: 'yoko', options: [],
+      gen(o, r) {
+        const d = ri(r, 2, 10), a = ri(r, 1, d - 1);
+        if (d - a < 1) return null;
+        const b = ri(r, 1, d - a), s = a + b;
+        if (gcd(a, d) > 1 || gcd(b, d) > 1) return null; // 問題の分数も約分ずみの形にする
+        if (s < d && gcd(s, d) > 1) return null; // 約分しなくてよい答えだけ
+        return P([`${a}/${d}`, `${b}/${d}`], ['+'], fracStr(s, d));
+      },
+    },
+    {
+      id: 'g3_frac_sub', grade: 3, kind: 'frac', label: '分数のひき算（分母が同じ）', hissan: false, defFmt: 'yoko', options: [],
+      gen(o, r) {
+        const d = ri(r, 2, 10), a = r() < 0.25 ? d : ri(r, 2, d - 1);
+        if (a < 2) return null;
+        const b = ri(r, 1, a - 1), s = a - b;
+        if (gcd(s, d) > 1 || gcd(b, d) > 1 || (a < d && gcd(a, d) > 1)) return null;
+        return P([a === d ? '1' : `${a}/${d}`, `${b}/${d}`], ['-'], fracStr(s, d));
+      },
+    },
+    {
+      id: 'g4_frac_add', grade: 4, kind: 'frac', label: '分数のたし算（分母が同じ・1より大きい）', hissan: false, defFmt: 'yoko', options: [FORM4],
+      gen(o, r) {
+        const d = ri(r, 3, 9), a = ri(r, 1, 3 * d), b = ri(r, 1, 3 * d), s = a + b;
+        if (a % d === 0 || b % d === 0 || (a < d && b < d)) return null;
+        if (gcd(a % d, d) > 1 || gcd(b % d, d) > 1) return null;
+        if (s % d !== 0 && gcd(s, d) > 1) return null;
+        if (s % d === 0 && r() < 0.65) return null; // 答えが整数になる問題は少なめに
+        return P([showFrac(a, d, o.form, r), showFrac(b, d, o.form, r)], ['+'], fracStr(s, d));
+      },
+    },
+    {
+      id: 'g4_frac_sub', grade: 4, kind: 'frac', label: '分数のひき算（分母が同じ・1より大きい）', hissan: false, defFmt: 'yoko', options: [FORM4],
+      gen(o, r) {
+        const d = ri(r, 3, 9);
+        const a = r() < 0.2 ? ri(r, 2, 4) * d : ri(r, d + 1, 4 * d), b = ri(r, 1, a - 1), s = a - b;
+        if (b % d === 0 || (a % d !== 0 && a < d)) return null;
+        if ((a % d && gcd(a % d, d) > 1) || gcd(b % d, d) > 1) return null;
+        if (s % d !== 0 && gcd(s, d) > 1) return null;
+        if (s % d === 0 && r() < 0.65) return null;
+        const ta = a % d === 0 ? String(a / d) : showFrac(a, d, o.form, r);
+        return P([ta, showFrac(b, d, o.form, r)], ['-'], fracStr(s, d));
+      },
+    },
+    {
+      id: 'g5_frac_add', grade: 5, kind: 'frac', label: '分数のたし算（分母がちがう）', hissan: false, defFmt: 'yoko', work: true, options: [YAKU5, MIXED5],
+      gen(o, r, i) { return frac5(o, r, i, '+'); },
+    },
+    {
+      id: 'g5_frac_sub', grade: 5, kind: 'frac', label: '分数のひき算（分母がちがう）', hissan: false, defFmt: 'yoko', work: true, options: [YAKU5, MIXED5],
+      gen(o, r, i) { return frac5(o, r, i, '-'); },
+    },
+    {
+      id: 'g6_frac_mulint', grade: 6, kind: 'frac', label: '分数×整数', hissan: false, defFmt: 'yoko', options: [CANCEL6],
+      gen(o, r, i) {
+        const [a, b] = properFrac(r), n = ri(r, 2, 12);
+        if (!cancelOk(o, i, gcd(b, n) > 1)) return null;
+        return P([`${a}/${b}`, String(n)], ['×'], fracStr(a * n, b));
+      },
+    },
+    {
+      id: 'g6_frac_divint', grade: 6, kind: 'frac', label: '分数÷整数', hissan: false, defFmt: 'yoko', options: [CANCEL6],
+      gen(o, r, i) {
+        const [a, b] = properFrac(r), n = ri(r, 2, 9);
+        if (!cancelOk(o, i, gcd(a, n) > 1)) return null;
+        return P([`${a}/${b}`, String(n)], ['÷'], fracStr(a, b * n));
+      },
+    },
+    {
+      id: 'g6_frac_mul', grade: 6, kind: 'frac', label: '分数×分数', hissan: false, defFmt: 'yoko', options: [CANCEL6],
+      gen(o, r, i) {
+        const [a, b] = properFrac(r), [c, d] = properFrac(r);
+        if (!cancelOk(o, i, gcd(a, d) > 1 || gcd(c, b) > 1)) return null;
+        return P([`${a}/${b}`, `${c}/${d}`], ['×'], fracStr(a * c, b * d));
+      },
+    },
+    {
+      id: 'g6_frac_div', grade: 6, kind: 'frac', label: '分数÷分数', hissan: false, defFmt: 'yoko', options: [CANCEL6],
+      gen(o, r, i) {
+        const [a, b] = properFrac(r), [c, d] = properFrac(r);
+        if (a * d === b * c) return null;
+        if (!cancelOk(o, i, gcd(a, c) > 1 || gcd(b, d) > 1)) return null;
+        return P([`${a}/${b}`, `${c}/${d}`], ['÷'], fracStr(a * d, b * c));
+      },
+    },
+    // ===== 6年 四則混合 =====
+    {
+      id: 'g6_shisoku', grade: 6, label: '四則混合（計算のきまり）', hissan: false, defFmt: 'yoko',
+      options: [{ key: 'paren', label: '（ ）', inTitle: true, choices: [['none', 'なし'], ['some', 'あり'], ['mix', 'まぜる']], def: 'mix' }],
+      gen(o, r, i) {
+        const pick = (arr) => arr[ri(r, 0, arr.length - 1)];
+        const ops = [pick(['+', '-', '×', '÷']), pick(['+', '-', '×', '÷'])];
+        const md = (x) => x === '×' || x === '÷';
+        if (md(ops[0]) === md(ops[1])) return null; // ＋−と×÷を1つずつ
+        const terms = [ri(r, 2, 40), ri(r, 2, 20), ri(r, 2, 12)];
+        const want = wantLevel(o.paren, i);
+        const plain = evalInt(terms, ops, null);
+        let paren = null;
+        if (want === 'some') {
+          paren = r() < 0.5 ? 'L' : 'R';
+          const v = evalInt(terms, ops, paren);
+          if (v === null || v === plain) return null; // （ ）で答えが変わる問題にする
+          return Object.assign(P(terms, ops, v), { paren });
+        }
+        // （ ）なし：左から計算すると答えがちがう問題（×÷を先にする練習）
+        if (plain === null || plain === evalLeft(terms, ops)) return null;
+        return P(terms, ops, plain);
+      },
+    },
   ];
 
   const TYPE_MAP = Object.fromEntries(TYPES.map((t) => [t.id, t]));
@@ -296,17 +614,19 @@
   function keyOf(p) {
     let s = String(p.terms[0]);
     for (let i = 0; i < p.ops.length; i++) s += p.ops[i] + p.terms[i + 1];
-    return s;
+    return s + (p.paren || '');
   }
 
   // 1問を作る（条件に合うまでやり直す）
   function genOne(type, o, r, idx, avoid) {
     for (let t = 0; t < 400; t++) {
       const p = type.gen(o, r, idx);
+      if (p && type.kind) p.kind = type.kind;
       if (p && !avoid.has(keyOf(p))) return { p, dup: false };
     }
     for (let t = 0; t < 400; t++) {
       const p = type.gen(o, r, idx);
+      if (p && type.kind) p.kind = type.kind;
       if (p) return { p, dup: true };
     }
     return { p: null, dup: true };
@@ -356,19 +676,27 @@
     return { days, dup };
   }
 
-  // 答えの検算（テストと表示前チェックに使う）
+  // 答えの検算（テストと表示前チェックに使う）。分数で正確に計算し、答えを文字列で返す
   function evaluate(p) {
-    let v = p.terms[0];
-    for (let i = 0; i < p.ops.length; i++) {
-      const b = p.terms[i + 1];
-      switch (p.ops[i]) {
-        case '+': v += b; break;
-        case '-': v -= b; break;
-        case '×': v *= b; break;
-        case '÷': return { ans: Math.floor(v / b), rem: v % b };
-      }
+    const t = p.terms.map(parseNum);
+    const kind = p.kind || 'int';
+    const fmt = (x) => (kind === 'frac' ? fracStr(x.n, x.d) : kind === 'dec' ? rToDec(x) : x.d === 1 ? String(x.n) : 'NaN');
+    const opf = { '+': rAdd, '-': rSub, '×': rMul, '÷': rDiv };
+    if (p.ops.length === 1 && p.ops[0] === '÷' && 'rem' in p) {
+      // 商とあまり（商は整数）
+      const q = Math.floor((t[0].n * t[1].d) / (t[0].d * t[1].n));
+      const rem = rSub(t[0], rMul(t[1], { n: q, d: 1 }));
+      return { ans: String(q), rem: kind === 'dec' ? rToDec(rem) : String(rem.n) };
     }
-    return { ans: v, rem: 0 };
+    let v;
+    if (p.ops.length === 1) v = opf[p.ops[0]](t[0], t[1]);
+    else {
+      const [o1, o2] = p.ops, md = (x) => x === '×' || x === '÷';
+      if (p.paren === 'L' || (!p.paren && !(md(o2) && !md(o1)))) v = opf[o2](opf[o1](t[0], t[1]), t[2]);
+      else v = opf[o1](t[0], opf[o2](t[1], t[2]));
+    }
+    if (p.round) return { ans: fixed1(Math.floor((20 * v.n + v.d) / (2 * v.d))), rem: '' };
+    return { ans: fmt(v), rem: '' };
   }
 
   function titleOf(type, o) {
@@ -383,7 +711,7 @@
       }
       if (v === 'mix') continue;
       const c = op.choices.find((x) => x[0] === v);
-      if (c) parts.push(op.label + c[1]);
+      if (c) parts.push((op.tl !== undefined ? op.tl : op.label) + c[1]);
     }
     let label = type.label;
     const dig = type.options.find((x) => x.key === 'dig');
@@ -394,7 +722,7 @@
     return parts.length ? `${label}（${parts.join('、')}）` : label;
   }
 
-  const api = { TYPES, TYPE_MAP, defaultOptions, generateDays, evaluate, keyOf, titleOf, carries, borrows, mulCarries, mulberry32, ndig };
+  const api = { gcd, parseNum, fracStr, mixedStr, decStr, TYPES, TYPE_MAP, defaultOptions, generateDays, evaluate, keyOf, titleOf, carries, borrows, mulCarries, mulberry32, ndig };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.SansuGen = api;
 })(typeof window !== 'undefined' ? window : globalThis);

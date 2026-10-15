@@ -4,7 +4,6 @@
   const G = window.SansuGen, L = window.SansuLayout;
   const $ = (id) => document.getElementById(id);
   const STORE_KEY = 'sansu-print:v1';
-  const READY_GRADES = [1, 2, 3, 4];
 
   const today = () => {
     const d = new Date();
@@ -13,11 +12,11 @@
   const newSeed = () => 1 + Math.floor(Math.random() * 2147483646);
 
   const DEFAULT = {
-    g: 1, t: 'g1_add_carry', opts: {}, fmt: 'yoko', n: 5, d: 5, sd: '', dm: 'auto', sk: true,
-    mode: 'diff', ly: 'multi', sz: 'M', face: true, fs: 'face', fw: 'sura,ike,fuan,muzu', time: false,
-    ans: true, triv: true, ttl: '', s: newSeed(),
+    g: 1, t: 'g1_add_carry', opts: {}, fmt: 'yoko', n: 5, d: 5, sd: '', dm: 'auto', wd: '1,2,3,4,5', skip: '',
+    mode: 'diff', ly: 'multi', sz: 'M', fs: 'face', fw: 'sura,ike,fuan,muzu', time: false,
+    ans: true, triv: true, work: false, ttl: '', s: newSeed(),
   };
-  const BOOL = ['sk', 'face', 'time', 'ans', 'triv'];
+  const BOOL = ['time', 'ans', 'triv', 'work'];
   const NUM = ['g', 'n', 'd', 's'];
 
   let st = loadState();
@@ -26,7 +25,15 @@
   // ---------- 状態の保存・復元（URL ＞ 端末の保存 ＞ 初期値） ----------
   function loadState() {
     let s = Object.assign({}, DEFAULT, { opts: {} });
-    try { const saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); if (saved) s = Object.assign(s, saved); } catch (e) { /* 保存なし */ }
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+      if (saved) {
+        if (saved.face === false && !saved.fs) saved.fs = 'none'; // 前の版の設定
+        if (saved.sk === false && !saved.wd) saved.wd = '0,1,2,3,4,5,6';
+        delete saved.face; delete saved.sk;
+        s = Object.assign(s, saved);
+      }
+    } catch (e) { /* 保存なし */ }
     const q = new URLSearchParams(location.search);
     if (q.has('t')) {
       s.opts = {};
@@ -43,7 +50,10 @@
     if (!type.hissan) s.fmt = 'yoko';
     if (!['yoko', 'hissan'].includes(s.fmt)) s.fmt = type.defFmt;
     s.n = clamp(s.n, 1, 50); s.d = clamp(s.d, 1, 20);
-    if (!['face', 'word'].includes(s.fs)) s.fs = 'face';
+    if (!['face', 'word', 'none'].includes(s.fs)) s.fs = 'face';
+    const wd = String(s.wd ?? '').split(',').filter((x) => /^[0-6]$/.test(x));
+    s.wd = wd.length ? wd.join(',') : DEFAULT.wd;
+    s.skip = String(s.skip || '').split(',').filter((x) => /^\d{4}-\d{2}-\d{2}$/.test(x)).join(',');
     const fw = String(s.fw || '').split(',').filter((k) => L.FEELINGS.some((f) => f.key === k));
     s.fw = fw.length ? fw.join(',') : DEFAULT.fw;
     if (!s.s) s.s = newSeed();
@@ -93,11 +103,9 @@
   function renderControls() {
     const type = G.TYPE_MAP[st.t];
     seg($('grades'), [1, 2, 3, 4, 5, 6].map((g) => [g, g + '年生']), st.g, (g) => { st.g = Number(g); update(false); });
-    $('gradeNote').hidden = READY_GRADES.includes(st.g) && st.g < 3;
 
     const list = G.TYPES.filter((t) => t.grade === st.g);
     const tl = $('types'); tl.innerHTML = '';
-    if (!list.length) tl.innerHTML = '<p class="note">この学年の型（小数・分数・四則混合）は準備中です。ほかの学年の型はえらべます。</p>';
     for (const t of list) {
       const b = document.createElement('button');
       b.type = 'button'; b.textContent = t.label;
@@ -131,14 +139,26 @@
 
     $('fmtRow').hidden = !type.hissan;
     seg($('fmt'), [['yoko', '横式'], ['hissan', '筆算']], st.fmt, (v) => { st.fmt = v; update(true); });
+    $('workRow').hidden = type.kind !== 'frac';
+    $('work').checked = !!st.work;
 
     seg($('dateMode'), [['auto', '自動で入れる'], ['blank', '空欄（手書き）']], st.dm, (v) => { st.dm = v; update(true); });
     $('dateRow').hidden = st.dm !== 'auto';
+    // 算数がある曜日（月曜はじまりで表示）
+    const WD = [['1', '月'], ['2', '火'], ['3', '水'], ['4', '木'], ['5', '金'], ['6', '土'], ['0', '日']];
+    seg($('weekdays'), WD, st.wd, (v) => {
+      const set = new Set(String(st.wd).split(',').filter(Boolean));
+      set.has(v) ? set.delete(v) : set.add(v);
+      if (!set.size) return;
+      st.wd = ['0', '1', '2', '3', '4', '5', '6'].filter((x) => set.has(x)).join(',');
+      update(true);
+    }, { multi: true });
+    renderDateChips();
     seg($('mode'), [['diff', '毎日ちがう'], ['rep', 'くり返し'], ['part', '少しずつ入れかえ']], st.mode, (v) => { st.mode = v; update(true); });
     seg($('layoutSel'), [['single', '1日1枚'], ['multi', '1枚に何日分も']], st.ly, (v) => { st.ly = v; update(true); });
     seg($('size'), [['L', '大'], ['M', '中'], ['S', '小']], st.sz, (v) => { st.sz = v; update(true); });
-    $('feelOpts').hidden = !st.face;
-    seg($('feelStyle'), [['face', '顔とことば'], ['word', 'ことばだけ']], st.fs, (v) => { st.fs = v; update(true); });
+    seg($('feelStyle'), [['face', '顔とことば'], ['word', 'ことばだけ'], ['none', 'なし']], st.fs, (v) => { st.fs = v; update(true); });
+    $('feelWordsRow').hidden = st.fs === 'none';
     seg($('feelWords'), L.FEELINGS.map((f) => [f.key, f.label]), st.fw, (v) => {
       const set = new Set(String(st.fw).split(',').filter(Boolean));
       set.has(v) ? set.delete(v) : set.add(v);
@@ -149,14 +169,36 @@
 
     $('count').value = st.n; $('days').value = st.d;
     $('startDate').value = st.sd || today();
-    for (const [id, k] of [['skipWeekend', 'sk'], ['face', 'face'], ['time', 'time'], ['answers', 'ans'], ['triv', 'triv']]) $(id).checked = !!st[k];
+    for (const [id, k] of [['time', 'time'], ['answers', 'ans'], ['triv', 'triv']]) $(id).checked = !!st[k];
     $('title').value = st.ttl;
     $('title').placeholder = G.titleOf(type, st.opts);
   }
 
+  // 日付の一覧（タップした日は「とばす日」になる）
+  function renderDateChips() {
+    const box = $('dateChips'); box.innerHTML = '';
+    if (st.dm !== 'auto') return;
+    const WDAY = ['日', '月', '火', '水', '木', '金', '土'];
+    const dates = L.dateList({ dateMode: 'auto', startDate: st.sd || today(), days: st.d, weekdays: String(st.wd).split(',').map(Number), skipDates: String(st.skip).split(',').filter(Boolean) });
+    for (const d of dates) {
+      if (!d) continue;
+      const key = L.ymd(d);
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = `${d.getMonth() + 1}/${d.getDate()}（${WDAY[d.getDay()]}）`;
+      b.setAttribute('aria-label', `${d.getMonth() + 1}月${d.getDate()}日をとばす`);
+      b.addEventListener('click', () => {
+        st.skip = String(st.skip).split(',').filter(Boolean).concat(key).join(',');
+        update(true);
+      });
+      box.appendChild(b);
+    }
+    $('btnUnskip').hidden = !st.skip;
+  }
+
   function selectType(id) {
     const type = G.TYPE_MAP[id];
-    st.t = id; st.opts = G.defaultOptions(type); st.fmt = type.defFmt; st.ttl = '';
+    st.t = id; st.opts = G.defaultOptions(type); st.fmt = type.defFmt; st.ttl = ''; st.work = !!type.work;
     update(true);
   }
 
@@ -166,9 +208,12 @@
     const amari = type.options.find((o) => o.key === 'amari');
     return {
       type: st.t, opts: st.opts, mode: st.mode, triv: st.triv, seed: st.s, days: st.d, count: st.n,
-      fmt: st.fmt, size: st.sz, face: st.face, feelStyle: st.fs, feelWords: String(st.fw).split(','), time: st.time,
-      answers: st.ans, layout: st.ly, dateMode: st.dm, startDate: st.sd || today(), skipWeekend: st.sk,
-      title: st.ttl || G.titleOf(type, st.opts), remBox: !!amari && st.opts.amari !== 'none',
+      fmt: st.fmt, size: st.sz, face: st.fs !== 'none', feelStyle: st.fs, feelWords: String(st.fw).split(','), time: st.time,
+      answers: st.ans, layout: st.ly, dateMode: st.dm, startDate: st.sd || today(),
+      weekdays: String(st.wd).split(',').map(Number), skipDates: String(st.skip).split(',').filter(Boolean),
+      work: st.work && type.kind === 'frac',
+      title: st.ttl || G.titleOf(type, st.opts),
+      remBox: type.hasRem ? type.hasRem(st.opts) : !!amari && st.opts.amari !== 'none',
     };
   }
 
@@ -185,7 +230,7 @@
     // 表示する前に、すべての答えを検算する
     for (const p of gen.days.flat()) {
       const e = G.evaluate(p);
-      if (e.ans !== p.ans || (e.rem || 0) !== (p.rem || 0)) { warns.push('答えの確認でエラーが見つかりました。「問題をつくりなおす」を押してください。'); break; }
+      if (e.ans !== String(p.ans) || e.rem !== String(p.rem ?? '')) { warns.push('答えの確認でエラーが見つかりました。「問題をつくりなおす」を押してください。'); break; }
     }
     if (gen.dup) warns.push('この条件では問題の種類が少ないため、同じ日の中に同じ問題が入っています。問題数をへらすか、条件を広げてください。');
     $('pages').innerHTML = out.html;
@@ -265,10 +310,11 @@
     $('count').addEventListener('change', (e) => { st.n = clamp(e.target.value, 1, 50); update(true); });
     $('days').addEventListener('change', (e) => { st.d = clamp(e.target.value, 1, 20); update(true); });
     $('startDate').addEventListener('change', (e) => { st.sd = e.target.value; update(true); });
-    for (const [id, k] of [['skipWeekend', 'sk'], ['face', 'face'], ['time', 'time'], ['answers', 'ans'], ['triv', 'triv']])
+    for (const [id, k] of [['time', 'time'], ['answers', 'ans'], ['triv', 'triv'], ['work', 'work']])
       $(id).addEventListener('change', (e) => { st[k] = e.target.checked; update(true); });
     let tt;
     $('title').addEventListener('input', (e) => { clearTimeout(tt); tt = setTimeout(() => { st.ttl = e.target.value.trim(); persist(); generate(); }, 300); });
+    $('btnUnskip').addEventListener('click', () => { st.skip = ''; update(true); });
     $('btnRegen').addEventListener('click', () => { st.s = newSeed(); update(true); });
     $('btnPrint').addEventListener('click', () => window.print());
     $('btnPdf').addEventListener('click', downloadPdf);
