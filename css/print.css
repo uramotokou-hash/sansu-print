@@ -51,6 +51,7 @@
 .page .fbox .f { display: inline-flex; flex-direction: column; align-items: center; gap: 0.1em; }
 .page .fbox .f > span { width: 1.55em; height: 0.95em; border: 0.3mm solid #333; border-radius: 0.8mm; box-sizing: border-box; }
 .page .fbox .f > i { width: 1.9em; border-top: 0.35mm solid #111; }
+.page .yk .box.fbig { min-width: 2.9em; height: 2.3em; }
 .page .fans { display: inline-flex; align-items: center; gap: 0.25em; }
 .page .fans b { display: inline-flex; align-items: center; gap: 0.12em; }
 .page .fans .imp { font-size: 0.85em; }

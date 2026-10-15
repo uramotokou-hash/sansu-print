@@ -80,7 +80,7 @@
   function ansEm(p) {
     if (p.kind === 'frac') {
       const f = fracAnswerParts(p.ans);
-      return Math.max(3.3, numEm(f.mixed) + (f.improper ? numEm(f.improper) + 1.3 : 0));
+      return Math.max(3.2, (f.improper ? numEm(f.improper) + numEm(f.mixed) + 1.3 : numEm(f.mixed)));
     }
     return Math.max(2.4, nd(p.ans) * 0.72 + 1.2);
   }
@@ -162,28 +162,46 @@
   }
 
   // ---------- 部品 ----------
-  // 手ごたえのことば（ふつうの顔はつくらない）。mouth＝口、brow＝まゆ、open＝口を開けた笑顔
+  // 手ごたえのことば（ふつうの顔はつくらない）。上ほど前向き、下ほど助けがほしい気持ち
+  // mouth＝口、open＝口を開ける、eyes＝'happy'（にこにこ目）/'line'（とじた目）、brow＝まゆ、extra＝そのほかの線
+  const SMILE_OPEN = 'M5.5 11 L14.5 11 Q14 16.2 10 16.2 Q6 16.2 5.5 11 Z';
   const FEELINGS = [
-    { key: 'sura', label: 'すらすら', mouth: 'M5.5 11 L14.5 11 Q14 16.2 10 16.2 Q6 16.2 5.5 11 Z', open: true },
+    { key: 'batchiri', label: 'ばっちり', mouth: SMILE_OPEN, open: true, eyes: 'happy', extra: 'M16.8 2.2 L17.4 3.8 L19 4.4 L17.4 5 L16.8 6.6 L16.2 5 L14.6 4.4 L16.2 3.8 Z' },
+    { key: 'sura', label: 'すらすら', mouth: SMILE_OPEN, open: true },
+    { key: 'tanoshii', label: 'たのしい', mouth: 'M6 12 Q10 16.5 14 12', eyes: 'happy' },
+    { key: 'wakatta', label: 'わかった', mouth: 'M6.5 12.5 Q10 15.5 13.5 12.5', brow: 'M5.4 5.2 Q7 4 8.6 5.2 M11.4 5.2 Q13 4 14.6 5.2' },
     { key: 'ike', label: 'いけそう', mouth: 'M6.5 12.5 Q10 14.8 13.5 12.5' },
+    { key: 'mousukoshi', label: 'もうすこし', mouth: 'M6.8 13.6 Q10 13.8 13.4 12.2' },
     { key: 'fuan', label: 'ちょっとふあん', mouth: 'M6.5 14 Q10 12 13.5 14' },
     { key: 'shin', label: 'しんぱい', mouth: 'M6.5 14 Q8.2 12.6 10 14 Q11.8 15.4 13.5 14', brow: 'M5.2 5.6 L8.3 4.7 M14.8 5.6 L11.7 4.7' },
+    { key: 'moya', label: 'もやもや', mouth: 'M6 13.8 L7.6 12.8 L9.2 13.8 L10.8 12.8 L12.4 13.8 L14 12.8', eyes: 'line' },
+    { key: 'kuyashii', label: 'くやしい', mouth: 'M6.5 14.8 Q10 11.8 13.5 14.8', brow: 'M5.2 4.6 L8.6 6 M14.8 4.6 L11.4 6' },
     { key: 'muzu', label: 'むずかしい', mouth: 'M6 15 Q10 10.5 14 15' },
+    { key: 'wakaranai', label: 'わからない', mouth: 'M10 12.6 m-1.5 1.4 a1.5 1.5 0 1 0 3 0 a1.5 1.5 0 1 0 -3 0', brow: 'M5.4 5.6 L8.4 5 M11.6 4.4 Q13 3.6 14.6 4.8' },
   ];
+  const FEEL_MAX = 5;
+  const FEEL_DEFAULT = ['sura', 'ike', 'fuan', 'muzu'];
+  function faceSvg(f) {
+    const eyes = f.eyes === 'happy'
+      ? '<path d="M5.6 8.6 Q7 6.6 8.4 8.6 M11.6 8.6 Q13 6.6 14.4 8.6" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>'
+      : f.eyes === 'line'
+        ? '<path d="M5.8 8 L8.2 8 M11.8 8 L14.2 8" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>'
+        : '<circle cx="7" cy="8" r="1.1" fill="currentColor"/><circle cx="13" cy="8" r="1.1" fill="currentColor"/>';
+    return `<svg viewBox="0 0 20 20" aria-hidden="true">
+        <circle cx="10" cy="10" r="8.6" fill="none" stroke="currentColor" stroke-width="1.1"/>
+        ${eyes}
+        ${f.brow ? `<path d="${f.brow}" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>` : ''}
+        ${f.extra ? `<path d="${f.extra}" fill="currentColor"/>` : ''}
+        <path d="${f.mouth}" fill="${f.open ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>`;
+  }
   function faces(cfg) {
-    const keys = cfg.feelWords && cfg.feelWords.length ? cfg.feelWords : ['sura', 'ike', 'fuan', 'muzu'];
-    const list = FEELINGS.filter((f) => keys.includes(f.key));
+    const keys = cfg.feelWords && cfg.feelWords.length ? cfg.feelWords : FEEL_DEFAULT;
+    const list = FEELINGS.filter((f) => keys.includes(f.key)).slice(0, FEEL_MAX);
     if (cfg.feelStyle === 'word') {
       return `<span class="faces words">${list.map((f) => `<span class="word">${f.label}</span>`).join('')}</span>`;
     }
-    const icon = (f) => `
-      <span class="face"><svg viewBox="0 0 20 20" aria-hidden="true">
-        <circle cx="10" cy="10" r="8.6" fill="none" stroke="currentColor" stroke-width="1.1"/>
-        <circle cx="7" cy="8" r="1.1" fill="currentColor"/><circle cx="13" cy="8" r="1.1" fill="currentColor"/>
-        ${f.brow ? `<path d="${f.brow}" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>` : ''}
-        <path d="${f.mouth}" fill="${f.open ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg><span class="facelabel">${f.label}</span></span>`;
-    return `<span class="faces">${list.map(icon).join('')}</span>`;
+    return `<span class="faces">${list.map((f) => `<span class="face">${faceSvg(f)}<span class="facelabel">${f.label}</span></span>`).join('')}</span>`;
   }
 
   function dayHead(cfg, date, answer) {
@@ -216,8 +234,9 @@
     if (p.kind === 'frac') {
       if (answer) {
         const f = fracAnswerParts(p.ans);
-        ansHtml = `<span class="fans"><b>${numHtml(f.mixed)}</b>${f.improper ? `<b class="imp">（${numHtml(f.improper)}）</b>` : ''}</span>`;
-      } else ansHtml = '<span class="fbox"><span class="w"></span><span class="f"><span></span><i></i><span></span></span></span>';
+        // 仮分数を先に、帯分数は（ ）で示す（どちらで書いても正解）
+        ansHtml = `<span class="fans"><b>${numHtml(f.improper || f.mixed)}</b>${f.improper ? `<b class="imp">（${numHtml(f.mixed)}）</b>` : ''}</span>`;
+      } else ansHtml = '<span class="box fbig"></span>'; // 帯分数でも仮分数でも書ける四角
     } else ansHtml = (p.round ? '<span class="yaku">約</span>' : '') + box(p.ans, ansW);
     let rem = '';
     if (cfg.remBox && (cfg.remBox !== 'per' || p.rem !== undefined)) {
@@ -343,5 +362,5 @@
     return { html: pages.join(''), plan: pl, pageCount: pages.length };
   }
 
-  root.SansuLayout = { FEELINGS, dateList, ymd, render, plan, measure, SIZES, PAGE };
+  root.SansuLayout = { FEELINGS, FEEL_MAX, faceSvg, dateList, ymd, render, plan, measure, SIZES, PAGE };
 })(window);

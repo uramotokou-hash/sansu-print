@@ -55,7 +55,7 @@
     s.wd = wd.length ? wd.join(',') : DEFAULT.wd;
     s.skip = String(s.skip || '').split(',').filter((x) => /^\d{4}-\d{2}-\d{2}$/.test(x)).join(',');
     const fw = String(s.fw || '').split(',').filter((k) => L.FEELINGS.some((f) => f.key === k));
-    s.fw = fw.length ? fw.join(',') : DEFAULT.fw;
+    s.fw = fw.length ? fw.slice(0, L.FEEL_MAX).join(',') : DEFAULT.fw;
     if (!s.s) s.s = newSeed();
     return s;
   }
@@ -165,11 +165,16 @@
     $('feelWordsRow').hidden = st.fs === 'none';
     seg($('feelWords'), L.FEELINGS.map((f) => [f.key, f.label]), st.fw, (v) => {
       const set = new Set(String(st.fw).split(',').filter(Boolean));
-      set.has(v) ? set.delete(v) : set.add(v);
+      if (set.has(v)) set.delete(v);
+      else if (set.size >= L.FEEL_MAX) { flash(`ことばは${L.FEEL_MAX}つまでです。どれかをはずしてから入れてください。`); return; }
+      else set.add(v);
       if (!set.size) return;
       st.fw = L.FEELINGS.map((f) => f.key).filter((k) => set.has(k)).join(',');
       update(true);
     }, { multi: true });
+    // ボタンに顔の絵をそえる
+    $('feelWords').querySelectorAll('button').forEach((b, i) => { b.insertAdjacentHTML('afterbegin', `<span class="fi">${L.faceSvg(L.FEELINGS[i])}</span>`); });
+    $('feelCount').textContent = `（${String(st.fw).split(',').filter(Boolean).length}／${L.FEEL_MAX}）`;
 
     $('count').value = st.n; $('days').value = st.d;
     $('startDate').value = st.sd || today();
@@ -261,11 +266,14 @@
     let gen = G.generateDays(cfg);
     let out = L.render(cfg, gen.days);
     const warns = [];
-    if (cfg.count > out.plan.maxCount) {
-      warns.push(`この大きさでは、1日に入るのは${out.plan.maxCount}問までです。${out.plan.maxCount}問にしました（文字を「小」にすると増やせます）。`);
+    // 入りきらないときは問題数をへらす（作り直した問題で入る数が変わることがあるので、落ち着くまでくり返す）
+    let capped = false;
+    for (let k = 0; k < 5 && cfg.count > out.plan.maxCount; k++) {
+      capped = true;
       st.n = out.plan.maxCount; $('count').value = st.n;
       cfg = buildCfg(); if (cfg.custom) cfg.count = Math.min(cfg.count, cfg.custom.length); gen = G.generateDays(cfg); out = L.render(cfg, gen.days);
     }
+    if (capped) warns.push(`この大きさでは、1日に入るのは${st.n}問までです。${st.n}問にしました（文字を「小」にすると増やせます）。`);
     // 表示する前に、すべての答えを検算する
     for (const p of gen.days.flat()) {
       const e = G.evaluate(p);
