@@ -14,7 +14,7 @@
 
   const DEFAULT = {
     g: 1, t: 'g1_add_carry', opts: {}, fmt: 'yoko', n: 5, d: 5, sd: '', dm: 'auto', sk: true,
-    mode: 'diff', ly: 'multi', sz: 'M', face: true, time: false,
+    mode: 'diff', ly: 'multi', sz: 'M', face: true, fs: 'face', fw: 'sura,ike,fuan,muzu', time: false,
     ans: true, triv: true, ttl: '', s: newSeed(),
   };
   const BOOL = ['sk', 'face', 'time', 'ans', 'triv'];
@@ -43,6 +43,9 @@
     if (!type.hissan) s.fmt = 'yoko';
     if (!['yoko', 'hissan'].includes(s.fmt)) s.fmt = type.defFmt;
     s.n = clamp(s.n, 1, 50); s.d = clamp(s.d, 1, 20);
+    if (!['face', 'word'].includes(s.fs)) s.fs = 'face';
+    const fw = String(s.fw || '').split(',').filter((k) => L.FEELINGS.some((f) => f.key === k));
+    s.fw = fw.length ? fw.join(',') : DEFAULT.fw;
     if (!s.s) s.s = newSeed();
     return s;
   }
@@ -134,6 +137,15 @@
     seg($('mode'), [['diff', '毎日ちがう'], ['rep', 'くり返し'], ['part', '少しずつ入れかえ']], st.mode, (v) => { st.mode = v; update(true); });
     seg($('layoutSel'), [['single', '1日1枚'], ['multi', '1枚に何日分も']], st.ly, (v) => { st.ly = v; update(true); });
     seg($('size'), [['L', '大'], ['M', '中'], ['S', '小']], st.sz, (v) => { st.sz = v; update(true); });
+    $('feelOpts').hidden = !st.face;
+    seg($('feelStyle'), [['face', '顔とことば'], ['word', 'ことばだけ']], st.fs, (v) => { st.fs = v; update(true); });
+    seg($('feelWords'), L.FEELINGS.map((f) => [f.key, f.label]), st.fw, (v) => {
+      const set = new Set(String(st.fw).split(',').filter(Boolean));
+      set.has(v) ? set.delete(v) : set.add(v);
+      if (!set.size) return;
+      st.fw = L.FEELINGS.map((f) => f.key).filter((k) => set.has(k)).join(',');
+      update(true);
+    }, { multi: true });
 
     $('count').value = st.n; $('days').value = st.d;
     $('startDate').value = st.sd || today();
@@ -154,7 +166,7 @@
     const amari = type.options.find((o) => o.key === 'amari');
     return {
       type: st.t, opts: st.opts, mode: st.mode, triv: st.triv, seed: st.s, days: st.d, count: st.n,
-      fmt: st.fmt, size: st.sz, face: st.face, time: st.time,
+      fmt: st.fmt, size: st.sz, face: st.face, feelStyle: st.fs, feelWords: String(st.fw).split(','), time: st.time,
       answers: st.ans, layout: st.ly, dateMode: st.dm, startDate: st.sd || today(), skipWeekend: st.sk,
       title: st.ttl || G.titleOf(type, st.opts), remBox: !!amari && st.opts.amari !== 'none',
     };

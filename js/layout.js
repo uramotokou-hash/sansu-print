@@ -100,18 +100,28 @@
   }
 
   // ---------- 部品 ----------
-  function faces() {
-    const face = (mouth, label) => `
+  // 手ごたえのことば（ふつうの顔はつくらない）。mouth＝口、brow＝まゆ、open＝口を開けた笑顔
+  const FEELINGS = [
+    { key: 'sura', label: 'すらすら', mouth: 'M5.5 11 L14.5 11 Q14 16.2 10 16.2 Q6 16.2 5.5 11 Z', open: true },
+    { key: 'ike', label: 'いけそう', mouth: 'M6.5 12.5 Q10 14.8 13.5 12.5' },
+    { key: 'fuan', label: 'ちょっとふあん', mouth: 'M6.5 14 Q10 12 13.5 14' },
+    { key: 'shin', label: 'しんぱい', mouth: 'M6.5 14 Q8.2 12.6 10 14 Q11.8 15.4 13.5 14', brow: 'M5.2 5.6 L8.3 4.7 M14.8 5.6 L11.7 4.7' },
+    { key: 'muzu', label: 'むずかしい', mouth: 'M6 15 Q10 10.5 14 15' },
+  ];
+  function faces(cfg) {
+    const keys = cfg.feelWords && cfg.feelWords.length ? cfg.feelWords : ['sura', 'ike', 'fuan', 'muzu'];
+    const list = FEELINGS.filter((f) => keys.includes(f.key));
+    if (cfg.feelStyle === 'word') {
+      return `<span class="faces words">${list.map((f) => `<span class="word">${f.label}</span>`).join('')}</span>`;
+    }
+    const icon = (f) => `
       <span class="face"><svg viewBox="0 0 20 20" aria-hidden="true">
         <circle cx="10" cy="10" r="8.6" fill="none" stroke="currentColor" stroke-width="1.1"/>
         <circle cx="7" cy="8" r="1.1" fill="currentColor"/><circle cx="13" cy="8" r="1.1" fill="currentColor"/>
-        <path d="${mouth}" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
-      </svg><span class="facelabel">${label}</span></span>`;
-    return `<span class="faces">
-      ${face('M6 12 Q10 16 14 12', 'すらすら')}
-      ${face('M6.5 13 L13.5 13', 'ちょっと')}
-      ${face('M6 14.5 Q10 10.5 14 14.5', 'むずかしい')}
-    </span>`;
+        ${f.brow ? `<path d="${f.brow}" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>` : ''}
+        <path d="${f.mouth}" fill="${f.open ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg><span class="facelabel">${f.label}</span></span>`;
+    return `<span class="faces">${list.map(icon).join('')}</span>`;
   }
 
   function dayHead(cfg, date, answer) {
@@ -121,7 +131,7 @@
     if (answer) return `<div class="dhead">${dateHtml}</div>`;
     return `<div class="dhead">${dateHtml}
       ${cfg.time ? '<span class="time"><i></i>分<i></i>秒</span>' : ''}
-      ${cfg.face ? faces() : ''}
+      ${cfg.face ? faces(cfg) : ''}
       <span class="score"><i></i>/ ${cfg.count}もん</span></div>`;
   }
 
@@ -209,5 +219,5 @@
     return { html: pages.join(''), plan: pl, pageCount: pages.length };
   }
 
-  root.SansuLayout = { render, plan, measure, SIZES, PAGE };
+  root.SansuLayout = { FEELINGS, render, plan, measure, SIZES, PAGE };
 })(window);

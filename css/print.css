@@ -21,9 +21,12 @@
 .page .dhead i.s { width: 5mm; }
 .page .dhead .score { margin-left: auto; }
 .page .dhead .score i { width: 10mm; }
-.page .faces { display: inline-flex; gap: 2.5mm; }
+.page .faces { display: inline-flex; gap: 1.6mm; }
 .page .face { display: inline-flex; flex-direction: column; align-items: center; line-height: 1; }
 .page .face svg { width: 7mm; height: 7mm; color: #222; }
+.page .dhead > .faces.words { flex: 0 1 auto; min-width: 0; flex-wrap: wrap; justify-content: center; gap: 0.6mm 1.2mm; white-space: normal; align-content: center; max-height: 11mm; }
+.page .faces.words .word { font-size: 2.8mm; line-height: 1.15; border: 0.25mm solid #444; border-radius: 3mm; padding: 0.3mm 1.4mm; white-space: nowrap; }
+.page .dhead > * { white-space: nowrap; flex: none; }
 .page .facelabel { font-size: 2.2mm; margin-top: 0.4mm; color: #333; }
 
 .page .grid { display: grid; column-gap: 6mm; }
