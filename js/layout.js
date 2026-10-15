@@ -24,7 +24,22 @@
 
   // ---------- 筆算の形（整数・小数） ----------
   // 各行：dig＝数字だけの並び、frac＝小数部分のけた数、pad＝右につめる空きマス
+  // わり算の筆算：わる数）わられる数 の形。小数点を動かしたあとの位置で商をそろえる
+  function divModel(p) {
+    const [a, b] = p.terms.map(String);
+    const split = (x) => { const [i, f = ''] = x.split('.'); return { dig: i + f, frac: f.length }; };
+    const A = split(a), B = split(b), Q = split(String(p.ans));
+    const shift = A.frac - B.frac; // わる数を整数にしたあとの、わられる数の小数のけた数
+    const P = Math.max(shift, Q.frac, 0);
+    const I = A.dig.length - shift; // 小数点より左のマス数（動かしたあと）
+    const Wa = I + P;
+    const k = Q.dig.replace(/^0+/, '').length || 1; // 商のけた数（計算の行の数を決める）
+    const rem = 'rem' in p || p.remBox;
+    return { kind: 'div', A, B, Q, I, P, Wa, Wd: B.dig.length, k, shift, rem, nrows: 2 + 2 * k, width: B.dig.length + 0.5 + Wa };
+  }
+
   function hModel(p) {
+    if (p.ops[0] === '÷') return divModel(p);
     const [a, b] = p.terms.map(String), op = p.ops[0];
     const split = (x) => { const [i, f = ''] = x.split('.'); return { dig: i + f, frac: f.length }; };
     const A = split(a), B = split(b);
@@ -46,7 +61,7 @@
     }
     let W = Math.max(...rows.concat([ans]).map((x) => x.dig.length + x.pad));
     if (partial) W = Math.max(W, String(Number(A.dig)).length + String(Number(B.dig)).length);
-    return { rows, ans, partial, W, nrows: 3 + partial };
+    return { rows, ans, partial, W, nrows: 3 + partial, width: W + 1 };
   }
 
   const FR = /^(?:(\d+)\s+)?(\d+)\/(\d+)$/;
@@ -75,16 +90,18 @@
     const s = SIZES[cfg.size] || SIZES.M;
     const gapX = 6;
     if (cfg.fmt === 'hissan') {
-      let W = 1, rows = 3;
+      let W = 1, rows = 3, width = 2, remRow = false;
       for (const p of allProblems) {
         const mo = hModel(p);
-        W = Math.max(W, mo.W);
+        if (mo.kind !== 'div') W = Math.max(W, mo.W);
         rows = Math.max(rows, mo.nrows);
+        width = Math.max(width, mo.kind === 'div' ? mo.width : W + 1);
+        if (mo.kind === 'div' && (cfg.remBox || mo.rem)) remRow = true;
       }
-      const itemW = (W + 1) * s.cell;
-      const itemH = rows * s.cell + s.label + 1.5;
+      const itemW = width * s.cell;
+      const itemH = rows * s.cell + s.label + 1.5 + (remRow ? s.cell * 0.95 : 0);
       const cols = Math.max(1, Math.min(5, Math.floor((CONTENT_W + gapX) / (itemW + gapX + 4))));
-      return { s, W, rows, itemW, itemH, rowGap: 5, cols };
+      return { s, W, rows, itemW, itemH, rowGap: 5, cols, remRow };
     }
     // 横式：いちばん長い式の幅を見積もって、1行に入る問題数を決める（最大4列）
     let em = 0;
@@ -203,7 +220,7 @@
       } else ansHtml = '<span class="fbox"><span class="w"></span><span class="f"><span></span><i></i><span></span></span></span>';
     } else ansHtml = (p.round ? '<span class="yaku">約</span>' : '') + box(p.ans, ansW);
     let rem = '';
-    if (cfg.remBox) {
+    if (cfg.remBox && (cfg.remBox !== 'per' || p.rem !== undefined)) {
       const v = p.rem ? p.rem : (answer ? 'なし' : '');
       rem = `<span class="amari">あまり</span>${box(v, remW)}`;
     }
@@ -212,9 +229,55 @@
     return row;
   }
 
+  function divItem(p, n, cfg, m, answer, mo) {
+    const { A, B, Q, I, Wa, Wd } = mo;
+    const cells = [];
+    const blank = (cls = '') => `<div class="c blank ${cls}"></div>`;
+    // 1行め：商
+    const qInt = Q.dig.slice(0, Q.dig.length - Q.frac), qFrac = Q.dig.slice(Q.dig.length - Q.frac);
+    for (let i = 0; i < Wd; i++) cells.push(blank());
+    cells.push(blank('brs'));
+    for (let c = 0; c < Wa; c++) {
+      let ch = '';
+      if (c < I) { const k = I - 1 - c; if (k < qInt.length) ch = qInt[qInt.length - 1 - k]; }
+      else if (c - I < qFrac.length) ch = qFrac[c - I];
+      const dp = answer && Q.frac > 0 && c === I - 1;
+      cells.push(`<div class="c d q${dp ? ' dp' : ''}">${answer && ch ? `<b>${ch}</b>` : ''}</div>`);
+    }
+    // 2行め：わる数 ）わられる数
+    for (let i = 0; i < Wd; i++) {
+      const dp = B.frac > 0 && i === Wd - 1 - B.frac;
+      const moved = answer && B.frac > 0 && i === Wd - 1;
+      cells.push(`<div class="c d dv${dp ? ' dp' : ''}${moved ? ' dpn' : ''}">${B.dig[i]}</div>`);
+    }
+    cells.push('<div class="c br"></div>');
+    for (let c = 0; c < Wa; c++) {
+      const ch = c < A.dig.length ? A.dig[c] : '';
+      const dp = A.frac > 0 && c === A.dig.length - 1 - A.frac;
+      const moved = answer && B.frac > 0 && c === I - 1; // 答えのページだけ、動かしたあとの小数点を赤で示す
+      cells.push(`<div class="c d vin${dp ? ' dp' : ''}${moved && !dp ? ' dpn' : ''}">${ch}</div>`);
+    }
+    // 計算の行（ひく数・ひいた答えを2行ずつ）
+    const work = Math.max(mo.nrows, m.rows) - 2;
+    for (let k = 0; k < work; k++) {
+      for (let i = 0; i < Wd; i++) cells.push(blank());
+      cells.push(blank('brs'));
+      for (let c = 0; c < Wa; c++) cells.push(`<div class="c d${k % 2 === 0 && k < 2 * mo.k ? ' under' : ''}"></div>`);
+    }
+    let remHtml = '';
+    if (m.remRow) {
+      const v = p.rem !== undefined && p.rem !== '' ? p.rem : (answer ? 'なし' : '');
+      remHtml = (cfg.remBox && cfg.remBox !== 'per') || p.rem !== undefined ? `<div class="hrem">あまり<span class="box">${answer ? `<b>${v}</b>` : ''}</span></div>` : '<div class="hrem"></div>';
+    }
+    const cols = `repeat(${Wd},var(--cell)) calc(var(--cell)*0.5) repeat(${Wa},var(--cell))`;
+    return `<div class="hs" style="width:${mo.width * m.s.cell}mm"><span class="no">(${n})</span>
+      <div class="hgrid div" style="grid-template-columns:${cols}">${cells.join('')}</div>${remHtml}</div>`;
+  }
+
   function hissanItem(p, n, cfg, m, answer) {
     const W = m.W, cols = W + 1;
     const mo = hModel(p);
+    if (mo.kind === 'div') return divItem(p, n, cfg, m, answer, mo);
     const cells = [];
     const rowHtml = (row, cls, show) => {
       const out = [`<div class="c sign ${cls}">${row && row.sign ? opText(row.sign) : ''}</div>`];

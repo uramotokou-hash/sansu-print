@@ -361,7 +361,7 @@
     },
     // ===== 4年 =====
     {
-      id: 'g4_div1', grade: 4, label: '2けた・3けた÷1けた', hissan: false, defFmt: 'yoko', options: [DIG23, AMARI],
+      id: 'g4_div1', grade: 4, label: '2けた・3けた÷1けた', hissan: true, defFmt: 'hissan', options: [DIG23, AMARI],
       gen(o, r, i) {
         const d = Number(o.dig), b = ri(r, 2, 9);
         const want = wantLevel(o.amari, i);
@@ -375,7 +375,7 @@
       },
     },
     {
-      id: 'g4_div2', grade: 4, label: '2けた・3けた÷2けた', hissan: false, defFmt: 'yoko', options: [DIG23, AMARI],
+      id: 'g4_div2', grade: 4, label: '2けた・3けた÷2けた', hissan: true, defFmt: 'hissan', options: [DIG23, AMARI],
       gen(o, r, i) {
         const d = Number(o.dig), b = ri(r, 11, 99);
         if (o.triv && b % 10 === 0) return null;
@@ -441,7 +441,7 @@
       },
     },
     {
-      id: 'g4_dec_divint', grade: 4, kind: 'dec', label: '小数÷整数（わり切れる）', hissan: false, defFmt: 'yoko',
+      id: 'g4_dec_divint', grade: 4, kind: 'dec', label: '小数÷整数（わり切れる）', hissan: true, defFmt: 'hissan',
       options: [{ key: 'bd', label: 'わる数', inTitle: false, choices: [['1', '1けた'], ['2', '2けた']], def: '1' }],
       gen(o, r) {
         const b = o.bd === '1' ? ri(r, 2, 9) : ri(r, 11, 30);
@@ -465,7 +465,7 @@
       },
     },
     {
-      id: 'g5_dec_div', grade: 5, kind: 'dec', label: '小数÷小数', hissan: false, defFmt: 'yoko',
+      id: 'g5_dec_div', grade: 5, kind: 'dec', label: '小数÷小数', hissan: true, hissanIf: (o) => o.dm === 'exact', defFmt: 'yoko',
       hasRem: (o) => o.dm === 'amari',
       options: [{ key: 'dm', label: 'わり算', inTitle: true, tl: '', choices: [['exact', 'わり切れる'], ['round', '商を四捨五入して1/10の位まで'], ['amari', '商は一の位まで・あまりを出す']], def: 'exact' }],
       gen(o, r) {
@@ -601,6 +601,34 @@
         return P(terms, ops, plain);
       },
     },
+    {
+      id: 'g6_frac_mixmul', grade: 6, kind: 'frac', label: '帯分数のかけ算', hissan: false, defFmt: 'yoko', options: [CANCEL6],
+      gen(o, r, i) { return mixMulDiv(o, r, i, '×'); },
+    },
+    {
+      id: 'g6_frac_mixdiv', grade: 6, kind: 'frac', label: '帯分数のわり算', hissan: false, defFmt: 'yoko', options: [CANCEL6],
+      gen(o, r, i) { return mixMulDiv(o, r, i, '÷'); },
+    },
+    {
+      id: 'g6_frac_dec3', grade: 6, kind: 'frac', label: '分数・小数・整数のまじった計算（×÷）', hissan: false, defFmt: 'yoko', options: [],
+      gen(o, r) {
+        const pick = (arr) => arr[ri(r, 0, arr.length - 1)];
+        const dec = () => decStr(rndDec(r, 2, 25, 1) ?? 5, 1); // 0.2〜2.5
+        const fr = () => { const [n, d] = properFrac(r); return `${n}/${d}`; };
+        const int = () => String(ri(r, 2, 9));
+        // 小数を1つ以上、分数を1つ以上ふくむ3つの数
+        const terms = shuffle([dec(), fr(), pick([fr, int, dec])()], r);
+        if (!terms.some((t) => t.includes('.')) || !terms.some((t) => t.includes('/'))) return null;
+        const ops = [pick(['×', '÷']), pick(['×', '÷'])];
+        const t = terms.map(parseNum);
+        const opf = { '×': rMul, '÷': rDiv };
+        const v = opf[ops[1]](opf[ops[0]](t[0], t[1]), t[2]);
+        if (v.d > 60 || v.n > 200 || v.n <= 0) return null;
+        return P(terms, ops, fracStr(v.n, v.d));
+      },
+    },
+    // ===== 自分で問題を入れる =====
+    { id: 'custom', grade: 0, label: '自分で問題を入れる', hissan: true, defFmt: 'yoko', options: [], gen() { return null; } },
   ];
 
   const TYPE_MAP = Object.fromEntries(TYPES.map((t) => [t.id, t]));
@@ -619,7 +647,7 @@
 
   // 1問を作る（条件に合うまでやり直す）
   function genOne(type, o, r, idx, avoid) {
-    for (let t = 0; t < 400; t++) {
+    for (let t = 0; t < 3000; t++) {
       const p = type.gen(o, r, idx);
       if (p && type.kind) p.kind = type.kind;
       if (p && !avoid.has(keyOf(p))) return { p, dup: false };
@@ -656,6 +684,7 @@
     const type = TYPE_MAP[cfg.type];
     if (!type) throw new Error('unknown type ' + cfg.type);
     const r = mulberry32(cfg.seed || 1);
+    if (type.id === 'custom') return customDays(cfg, r);
     const o = Object.assign(defaultOptions(type), cfg.opts || {}, { triv: cfg.triv !== false });
     const days = [];
     let dup = false;
@@ -674,6 +703,100 @@
       days.push(res.list);
     }
     return { days, dup };
+  }
+
+  // 6年：帯分数のかけ算・わり算（1つは必ず帯分数）
+  function mixMulDiv(o, r, i, op) {
+    const mk = (mixed) => { const [n, d] = properFrac(r); const w = mixed ? ri(r, 1, 3) : 0; return { n: w * d + n, d, s: mixedStr(w * d + n, d) }; };
+    const m = ri(r, 0, 2); // 0:左が帯分数 1:右が帯分数 2:両方
+    const x = mk(m !== 1), y = mk(m !== 0);
+    if (op === '÷' && x.n * y.d === y.n * x.d) return null; // 同じ数どうしのわり算は出さない
+    // 仮分数にしたあと約分できるか
+    const can = op === '×' ? gcd(x.n, y.d) > 1 || gcd(y.n, x.d) > 1 : gcd(x.n, y.n) > 1 || gcd(x.d, y.d) > 1;
+    if (!cancelOk(o, i, can)) return null;
+    const n = op === '×' ? x.n * y.n : x.n * y.d, d = op === '×' ? x.d * y.d : x.d * y.n;
+    const g = gcd(n, d);
+    if (d / g > 60 || n / g > 300) return null;
+    return P([x.s, y.s], [op], fracStr(n, d));
+  }
+
+  // ---------- 自分で入れた式を読む ----------
+  // 例：「12+34」「3.4×2」「1と2/3÷4/5」「(12+3)×4」。数は3つまで。
+  function parseCustom(line) {
+    let s = String(line).trim();
+    if (!s) return null;
+    s = s.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+      .replace(/[．。]/g, '.').replace(/[／]/g, '/').replace(/[＋]/g, '+').replace(/[－−ー‐]/g, '-')
+      .replace(/[xｘＸ＊*✕]/gi, '×').replace(/[：]/g, '÷').replace(/[（]/g, '(').replace(/[）]/g, ')')
+      .replace(/[=＝].*$/, '').replace(/(\d)\s*と\s*(\d+\/\d+)/g, '$1 $2').trim();
+    const re = /\s*(\d+\s+\d+\/\d+|\d+\/\d+|\d+(?:\.\d+)?|[+\-×÷()])/y;
+    const tok = [];
+    let m;
+    re.lastIndex = 0;
+    while (re.lastIndex < s.length && (m = re.exec(s))) tok.push(m[1]);
+    if (re.lastIndex < s.trimEnd().length) return { error: '読めない文字があります' };
+    const terms = [], ops = [];
+    let paren = null, depth = 0, openAt = -1;
+    for (const t of tok) {
+      if (t === '(') { if (depth) return { error: '（ ）は1組までです' }; depth = 1; openAt = terms.length; continue; }
+      if (t === ')') { if (!depth) return { error: '（ ）の組み合わせがちがいます' }; depth = 0; if (terms.length - openAt !== 2) return { error: '（ ）の中は数2つにしてください' }; paren = openAt === 0 ? 'L' : 'R'; continue; }
+      if ('+-×÷'.includes(t)) { if (terms.length !== ops.length + 1) return { error: '式の形がちがいます' }; ops.push(t); continue; }
+      if (terms.length !== ops.length) return { error: '式の形がちがいます' };
+      terms.push(t);
+    }
+    if (depth || terms.length < 2 || terms.length !== ops.length + 1) return { error: '式の形がちがいます' };
+    if (terms.length > 3) return { error: '数は3つまでにしてください' };
+    if (terms.length === 2 && paren) paren = null;
+    const kind = terms.some((t) => t.includes('/')) ? 'frac' : terms.some((t) => t.includes('.')) ? 'dec' : undefined;
+    const p = { terms: terms.map((t) => (kind ? t.replace(/\s+/, ' ') : Number(t))), ops, ans: '' };
+    if (paren) p.paren = paren;
+    if (kind) p.kind = kind;
+    let x;
+    try {
+      const vals = p.terms.map(parseNum);
+      if (vals.some((v) => !v.n) && ops.includes('÷')) { /* 0でわるかは下で調べる */ }
+      if (p.terms.length === 2 && ops[0] === '÷' && !vals[1].n) return { error: '0ではわれません' };
+      if (p.terms.length === 2 && ops[0] === '÷' && kind !== 'frac') {
+        const q = rDiv(vals[0], vals[1]);
+        const exact = kind === 'dec' ? rToDec(q) !== null && rToDec(q).replace('.', '').length <= 6 : q.d === 1;
+        if (!exact) { p.rem = ''; } // わり切れない → 商（整数）とあまり
+      }
+      x = evaluate(p);
+    } catch (e) { return { error: '計算できない式です' }; }
+    if (!x.ans || x.ans === 'NaN' || x.ans === 'null' || x.ans.startsWith('-')) return { error: '答えが0より小さいか、計算できません' };
+    p.ans = kind ? x.ans : Number(x.ans);
+    if ('rem' in p) { p.rem = kind ? x.rem : Number(x.rem); if (!Number(String(p.rem).replace(/[^\d.]/g, ''))) delete p.rem; }
+    return { p };
+  }
+  function parseCustomList(text) {
+    const problems = [], errors = [];
+    String(text || '').split(/\r?\n/).forEach((line, i) => {
+      const r0 = parseCustom(line);
+      if (!r0) return;
+      if (r0.error) errors.push({ line: i + 1, text: line.trim(), error: r0.error });
+      else problems.push(r0.p);
+    });
+    return { problems, errors };
+  }
+
+  // 自分で入れた問題を日ごとにふりわける
+  // 毎日ちがう：入れた順に「1日の問題数」ずつ（最後まで行ったら最初にもどる）／くり返し：毎日同じ問題（順番を入れかえ）
+  function customDays(cfg, r) {
+    const list = cfg.custom || [];
+    const days = [];
+    if (!list.length) { for (let d = 0; d < cfg.days; d++) days.push([]); return { days, dup: false }; }
+    const n = Math.min(cfg.count, list.length);
+    for (let d = 0; d < cfg.days; d++) {
+      let day;
+      if (cfg.mode === 'rep') day = shuffle(list.slice(0, n), r);
+      else if (cfg.mode === 'part' && d > 0) {
+        const keep = shuffle(days[d - 1], r).slice(0, Math.floor(n / 2));
+        const rest = list.filter((p) => !keep.includes(p));
+        day = shuffle(keep.concat(shuffle(rest, r).slice(0, n - keep.length)), r);
+      } else day = Array.from({ length: n }, (_, i) => list[(d * n + i) % list.length]);
+      days.push(day);
+    }
+    return { days, dup: false, count: n };
   }
 
   // 答えの検算（テストと表示前チェックに使う）。分数で正確に計算し、答えを文字列で返す
@@ -722,7 +845,7 @@
     return parts.length ? `${label}（${parts.join('、')}）` : label;
   }
 
-  const api = { gcd, parseNum, fracStr, mixedStr, decStr, TYPES, TYPE_MAP, defaultOptions, generateDays, evaluate, keyOf, titleOf, carries, borrows, mulCarries, mulberry32, ndig };
+  const api = { parseCustom, parseCustomList, gcd, parseNum, fracStr, mixedStr, decStr, TYPES, TYPE_MAP, defaultOptions, generateDays, evaluate, keyOf, titleOf, carries, borrows, mulCarries, mulberry32, ndig };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.SansuGen = api;
 })(typeof window !== 'undefined' ? window : globalThis);

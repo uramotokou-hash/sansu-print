@@ -4,7 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>算数プリント自動生成メーカー</title>
-<meta name="description" content="学年と計算をえらぶだけで、日付入りの計算プリントをPDFで作れる無料アプリ。帯活動・知的学級にも。">
+<meta name="description" content="学年と計算をえらぶだけで、日付入りの計算プリントをPDFで作れる無料アプリ。1〜6年の整数・小数・分数、筆算、答えつき。帯活動・知的学級にも。">
+<meta property="og:title" content="算数プリント自動生成メーカー">
+<meta property="og:description" content="学年と計算をえらぶだけ。日付入りの計算プリントを何日分でもPDFで。1〜6年・筆算・小数・分数・答えつき。無料・登録なし。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://uramotokou-hash.github.io/sansu-print/">
+<meta name="twitter:card" content="summary">
+<meta name="theme-color" content="#2f7a5f">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232f7a5f'/%3E%3Cpath d='M18 22h12M24 16v12M36 22h10M18 44h12M36 40h10M36 48h10' stroke='white' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
@@ -15,6 +22,17 @@
 <header class="apphead">
   <h1>算数プリント自動生成メーカー</h1>
   <p>学年と計算をえらぶだけ。日付入りで、帯活動にもそのまま使えます。</p>
+  <details class="howto">
+    <summary>使い方</summary>
+    <ol>
+      <li>学年と「計算の型」をえらびます（学年は目安です。ほかの学年の型もえらべます）。</li>
+      <li>くり上がり・あまり・約分などの「むずかしさ」と、横式か筆算かをえらびます。</li>
+      <li>1日の問題数と何日分かを決めます。日付は自動で入れるか空欄にできます。算数がない日は、日付の一覧をタップするととばせます。</li>
+      <li>「PDFをダウンロード」を押します。答えのページは最後につきます。</li>
+    </ol>
+    <p>教科書の問題など、決まった式を使いたいときは「✎ 自分で問題を入れる」をえらび、式を1行に1つずつ入れてください。答えは自動で計算します。</p>
+    <p>「この設定のリンクをコピー」で、同じ条件のプリントを作れるリンクを共有できます。入力した内容はこの端末の中だけで使われます。</p>
+  </details>
 </header>
 
 <main class="layout">
@@ -33,6 +51,13 @@
     <section class="step">
       <h2><span class="num">3</span>むずかしさ</h2>
       <div id="typeOpts"></div>
+      <div id="customBox" hidden>
+        <label class="lbl" for="customText">式を1行に1つずつ入れてください（答えは自動で計算します）</label>
+        <textarea id="customText" rows="8" spellcheck="false" placeholder="例）&#10;23+48&#10;3.4×2&#10;1と2/3＋1/6&#10;(12+3)×4&#10;17÷5"></textarea>
+        <p class="note">数は3つまで、（ ）は1組まで。分数は「2/3」、帯分数は「1と2/3」と書きます。わり切れない整数のわり算は「あまり」つきになります。入れた順に、1日の問題数ずつふりわけます。</p>
+        <p class="okmsg" id="customOk"></p>
+        <ul class="errs" id="customErrs"></ul>
+      </div>
       <div class="row" id="fmtRow">
         <label class="lbl">書き方</label>
         <div class="seg" id="fmt"></div>
@@ -122,7 +147,7 @@
 </main>
 
 <div id="capture" aria-hidden="true"></div>
-<footer class="appfoot">算数プリント自動生成メーカー ・ 入力した内容はこの端末の中だけで使われ、どこにも送られません。</footer>
+<footer class="appfoot">算数プリント自動生成メーカー v1.0 ・ こう先生（@ikkakuteacher）・ 入力した内容はこの端末の中だけで使われ、どこにも送られません。</footer>
 
 <script src="js/generators.js"></script>
 <script src="js/layout.js"></script>

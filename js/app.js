@@ -14,7 +14,7 @@
   const DEFAULT = {
     g: 1, t: 'g1_add_carry', opts: {}, fmt: 'yoko', n: 5, d: 5, sd: '', dm: 'auto', wd: '1,2,3,4,5', skip: '',
     mode: 'diff', ly: 'multi', sz: 'M', fs: 'face', fw: 'sura,ike,fuan,muzu', time: false,
-    ans: true, triv: true, work: false, ttl: '', s: newSeed(),
+    ans: true, triv: true, work: false, ttl: '', cu: '', s: newSeed(),
   };
   const BOOL = ['time', 'ans', 'triv', 'work'];
   const NUM = ['g', 'n', 'd', 's'];
@@ -106,21 +106,25 @@
 
     const list = G.TYPES.filter((t) => t.grade === st.g);
     const tl = $('types'); tl.innerHTML = '';
-    for (const t of list) {
+    for (const t of list.concat([G.TYPE_MAP.custom])) {
       const b = document.createElement('button');
-      b.type = 'button'; b.textContent = t.label;
+      b.type = 'button'; b.textContent = t.id === 'custom' ? '✎ 自分で問題を入れる' : t.label;
+      if (t.id === 'custom') b.className = 'custom';
       b.setAttribute('aria-pressed', t.id === st.t ? 'true' : 'false');
       b.addEventListener('click', () => selectType(t.id));
       tl.appendChild(b);
     }
-    if (list.length && type.grade !== st.g) {
+    if (type.id !== 'custom' && type.grade !== st.g) {
       const p = document.createElement('p'); p.className = 'note';
       p.textContent = `いまえらんでいる型：${type.grade}年「${type.label}」`;
       tl.appendChild(p);
     }
 
     const box = $('typeOpts'); box.innerHTML = '';
-    if (!type.options.length) box.innerHTML = '<p class="note">この型には、むずかしさの切りかえはありません。</p>';
+    const isCustom = type.id === 'custom';
+    $('customBox').hidden = !isCustom;
+    if (isCustom) { if ($('customText').value !== st.cu) $('customText').value = st.cu; renderCustomStatus(); }
+    if (!type.options.length && !isCustom) box.innerHTML = '<p class="note">この型には、むずかしさの切りかえはありません。</p>';
     for (const op of type.options) {
       const row = document.createElement('div'); row.className = 'optrow';
       row.innerHTML = `<span class="lbl">${op.label}</span>`;
@@ -137,9 +141,9 @@
       row.appendChild(s); box.appendChild(row);
     }
 
-    $('fmtRow').hidden = !type.hissan;
+    $('fmtRow').hidden = !hissanAllowed(type);
     seg($('fmt'), [['yoko', '横式'], ['hissan', '筆算']], st.fmt, (v) => { st.fmt = v; update(true); });
-    $('workRow').hidden = type.kind !== 'frac';
+    $('workRow').hidden = !hasFrac(type);
     $('work').checked = !!st.work;
 
     seg($('dateMode'), [['auto', '自動で入れる'], ['blank', '空欄（手書き）']], st.dm, (v) => { st.dm = v; update(true); });
@@ -171,7 +175,7 @@
     $('startDate').value = st.sd || today();
     for (const [id, k] of [['time', 'time'], ['answers', 'ans'], ['triv', 'triv']]) $(id).checked = !!st[k];
     $('title').value = st.ttl;
-    $('title').placeholder = G.titleOf(type, st.opts);
+    $('title').placeholder = defaultTitle(type);
   }
 
   // 日付の一覧（タップした日は「とばす日」になる）
@@ -202,30 +206,65 @@
     update(true);
   }
 
+  function hasFrac(type) {
+    if (type.kind === 'frac') return true;
+    return type.id === 'custom' && G.parseCustomList(st.cu).problems.some((p) => p.kind === 'frac');
+  }
+  function defaultTitle(type) { return type.id === 'custom' ? 'けいさんれんしゅう' : G.titleOf(type, st.opts); }
+  function renderCustomStatus() {
+    const { problems, errors } = G.parseCustomList(st.cu);
+    $('customOk').textContent = problems.length ? `${problems.length}問を読みこみました` + (errors.length ? '（読めなかった行は下のとおりです）' : '') : '';
+    const ul = $('customErrs'); ul.innerHTML = '';
+    for (const e of errors) {
+      const li = document.createElement('li');
+      li.textContent = `${e.line}行め「${e.text}」：${e.error}`;
+      ul.appendChild(li);
+    }
+  }
+
+  // 筆算にできるか（小数÷小数は「わり切れる」だけ、自分で入れた問題は数2つの式だけ）
+  function hissanAllowed(type) {
+    if (!type.hissan) return false;
+    if (type.hissanIf && !type.hissanIf(st.opts)) return false;
+    if (type.id === 'custom') {
+      const list = G.parseCustomList(st.cu).problems;
+      return list.length > 0 && list.every((p) => p.ops.length === 1 && p.kind !== 'frac');
+    }
+    return true;
+  }
+
   // ---------- プリントを作る ----------
   function buildCfg() {
     const type = G.TYPE_MAP[st.t];
     const amari = type.options.find((o) => o.key === 'amari');
     return {
       type: st.t, opts: st.opts, mode: st.mode, triv: st.triv, seed: st.s, days: st.d, count: st.n,
-      fmt: st.fmt, size: st.sz, face: st.fs !== 'none', feelStyle: st.fs, feelWords: String(st.fw).split(','), time: st.time,
+      fmt: hissanAllowed(type) ? st.fmt : 'yoko', size: st.sz, face: st.fs !== 'none', feelStyle: st.fs, feelWords: String(st.fw).split(','), time: st.time,
       answers: st.ans, layout: st.ly, dateMode: st.dm, startDate: st.sd || today(),
       weekdays: String(st.wd).split(',').map(Number), skipDates: String(st.skip).split(',').filter(Boolean),
-      work: st.work && type.kind === 'frac',
-      title: st.ttl || G.titleOf(type, st.opts),
-      remBox: type.hasRem ? type.hasRem(st.opts) : !!amari && st.opts.amari !== 'none',
+      work: st.work && hasFrac(type),
+      title: st.ttl || defaultTitle(type),
+      custom: type.id === 'custom' ? G.parseCustomList(st.cu).problems : null,
+      remBox: type.id === 'custom' ? (G.parseCustomList(st.cu).problems.some((p) => p.rem !== undefined) ? 'per' : false)
+        : type.hasRem ? type.hasRem(st.opts) : !!amari && st.opts.amari !== 'none',
     };
   }
 
   function generate() {
     let cfg = buildCfg();
+    if (cfg.custom && !cfg.custom.length) {
+      $('pages').innerHTML = '<p class="empty">左の「式」の欄に問題を入れると、ここにプリントが出ます。</p>';
+      $('info').textContent = ''; $('warn').hidden = true; last = null;
+      return;
+    }
+    if (cfg.custom) cfg.count = Math.min(cfg.count, cfg.custom.length);
     let gen = G.generateDays(cfg);
     let out = L.render(cfg, gen.days);
     const warns = [];
     if (cfg.count > out.plan.maxCount) {
       warns.push(`この大きさでは、1日に入るのは${out.plan.maxCount}問までです。${out.plan.maxCount}問にしました（文字を「小」にすると増やせます）。`);
       st.n = out.plan.maxCount; $('count').value = st.n;
-      cfg = buildCfg(); gen = G.generateDays(cfg); out = L.render(cfg, gen.days);
+      cfg = buildCfg(); if (cfg.custom) cfg.count = Math.min(cfg.count, cfg.custom.length); gen = G.generateDays(cfg); out = L.render(cfg, gen.days);
     }
     // 表示する前に、すべての答えを検算する
     for (const p of gen.days.flat()) {
@@ -314,6 +353,11 @@
       $(id).addEventListener('change', (e) => { st[k] = e.target.checked; update(true); });
     let tt;
     $('title').addEventListener('input', (e) => { clearTimeout(tt); tt = setTimeout(() => { st.ttl = e.target.value.trim(); persist(); generate(); }, 300); });
+    let ct;
+    $('customText').addEventListener('input', (e) => {
+      clearTimeout(ct);
+      ct = setTimeout(() => { st.cu = e.target.value; update(true); }, 400);
+    });
     $('btnUnskip').addEventListener('click', () => { st.skip = ''; update(true); });
     $('btnRegen').addEventListener('click', () => { st.s = newSeed(); update(true); });
     $('btnPrint').addEventListener('click', () => window.print());

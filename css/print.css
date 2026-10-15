@@ -75,5 +75,16 @@
 .page .hgrid b.z { position: relative; }
 .page .hgrid b.z::after { content: ''; position: absolute; left: -15%; right: -15%; top: 50%; border-top: 0.3mm solid #c62828; transform: rotate(-55deg); }
 
+/* わり算の筆算 */
+.page .hgrid .c.blank { border: 0 !important; }
+.page .hgrid .c.br { position: relative; }
+.page .hgrid .c.br::before { content: ''; position: absolute; left: -10%; top: -0.3mm; bottom: 8%; width: 85%; border-right: 0.55mm solid #111; border-top: 0.55mm solid #111; border-top-right-radius: 100% 30%; border-bottom-right-radius: 100% 70%; box-sizing: border-box; }
+.page .hgrid .c.vin { border-top: 0.55mm solid #111 !important; }
+.page .hgrid .c.dpn { position: relative; }
+.page .hgrid .c.dpn::before { content: ''; position: absolute; right: -0.6mm; bottom: 0.5mm; width: 1.2mm; height: 1.2mm; border-radius: 50%; background: #c62828; z-index: 2; }
+.page.answer .hgrid .c.q.dp::after { background: #c62828; }
+.page .hrem { height: calc(var(--cell) * 0.95); display: flex; align-items: center; justify-content: flex-end; gap: 1.5mm; font-size: calc(var(--cell) * 0.38); }
+.page .hrem .box { display: inline-block; min-width: calc(var(--cell) * 1.8); height: calc(var(--cell) * 0.72); border: 0.3mm solid #333; border-radius: 1mm; text-align: center; font-size: calc(var(--cell) * 0.55); line-height: calc(var(--cell) * 0.72); padding: 0 1mm; box-sizing: border-box; }
+
 /* 答えのページ（赤） */
 .page.answer b { color: #c62828; font-weight: 700; }

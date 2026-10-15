@@ -88,6 +88,8 @@ function checkProblem(type, opts, triv, p) {
       if (opts.mixed === 'no' && p.terms.some((t) => /\s/.test(t))) err(`${type.id} mixed no ${G.keyOf(p)}`);
     }
   }
+  if (type.id.startsWith('g6_frac_mix') && !p.terms.some((x) => /\s/.test(x))) err(`${type.id} no mixed ${G.keyOf(p)}`);
+  if (type.id === 'g6_frac_dec3' && !(p.terms.some((x) => String(x).includes('.')) && p.terms.some((x) => String(x).includes('/')))) err(`${type.id} terms ${G.keyOf(p)}`);
   if (type.id === 'g6_shisoku') {
     const md = (x) => x === '×' || x === '÷';
     if (md(p.ops[0]) === md(p.ops[1])) err(`${type.id} ops ${G.keyOf(p)}`);
@@ -97,7 +99,7 @@ function checkProblem(type, opts, triv, p) {
   }
 }
 
-for (const type of G.TYPES) {
+for (const type of G.TYPES.filter((x) => x.id !== 'custom')) {
   for (const opts of combos(type)) {
     for (const mode of ['diff', 'rep', 'part']) {
       for (const triv of [true, false]) {
@@ -137,6 +139,28 @@ for (const type of G.TYPES) {
 const x = JSON.stringify(G.generateDays({ type: 'g5_frac_add', mode: 'diff', seed: 42, days: 3, count: 8 }));
 const y = JSON.stringify(G.generateDays({ type: 'g5_frac_add', mode: 'diff', seed: 42, days: 3, count: 8 }));
 if (x !== y) err('seed not reproducible');
+
+// 自分で入れた式
+const C = [
+  ['12+34', '46'], ['１２＋３４', '46'], ['100-37', '63'], ['3.4×2', '6.8'], ['17÷5', '3', '2'], ['20÷4', '5'],
+  ['1と2/3÷4/5', '25/12'], ['1 2/3+1/6', '11/6'], ['(12+3)×4', '60'], ['12+3×4', '24'], ['2.5÷0.5', '5'], ['7.5÷2', '3.75'],
+  ['0.6×5/9÷1.2', '5/18'], ['36÷(4+5)', '4'], ['13.5÷4', '3.375'],
+];
+for (const [line, ans, rem] of C) {
+  const r0 = G.parseCustom(line);
+  if (!r0 || r0.error) { err(`custom parse ${line} ${r0 && r0.error}`); continue; }
+  if (String(r0.p.ans) !== ans || String(r0.p.rem ?? '') !== (rem || '')) err(`custom ${line} = ${r0.p.ans} r${r0.p.rem} (expected ${ans} r${rem || ''})`);
+  const e = G.evaluate(r0.p);
+  if (e.ans !== String(r0.p.ans)) err(`custom eval ${line}`);
+}
+for (const bad of ['12+', 'abc', '1+2+3+4', '5-9', '3÷0', '((1+2)', '1+(2']) {
+  const r0 = G.parseCustom(bad);
+  if (!r0 || !r0.error) err(`custom should fail: ${bad} -> ${JSON.stringify(r0)}`);
+}
+const cl = G.parseCustomList('1+2\n3+4\n5+6\nxx\n7+8\n9+10');
+if (cl.problems.length !== 5 || cl.errors.length !== 1 || cl.errors[0].line !== 4) err('custom list');
+const cd = G.generateDays({ type: 'custom', custom: cl.problems, count: 2, days: 4, mode: 'diff', seed: 1 });
+if (cd.days.map((d) => d.map((p) => p.ans).join(',')).join('|') !== '3,7|11,15|19,3|7,11') err('custom days ' + cd.days.map((d) => d.map((p) => p.ans).join(',')).join('|'));
 
 console.log(`${G.TYPES.length} types, checked ${checked} problems, ${fail} failures`);
 process.exit(fail ? 1 : 0);
